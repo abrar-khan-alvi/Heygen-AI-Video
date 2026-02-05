@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Django
+*.log
+staticfiles/
+mediafiles/
+
+# Coverage
+htmlcov/
+.coverage
+
+# NOTE: .env and db.sqlite3 are intentionally NOT ignored
+# This is for easy setup on another machine
+# In production, these should be in .gitignore!

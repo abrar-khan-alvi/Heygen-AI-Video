@@ -1,0 +1,21 @@
+# Django Core
+Django>=4.2                          # Main web framework
+djangorestframework>=3.14            # REST API toolkit
+
+# JWT Authentication
+djangorestframework-simplejwt>=5.3   # JWT token generation & validation
+
+# CORS (Cross-Origin Resource Sharing)
+django-cors-headers>=4.3             # Allow frontend to call backend API
+
+# Environment Variables
+python-dotenv>=1.0                   # Load secrets from .env file
+
+# Social Authentication (Google/Apple)
+google-auth>=2.27                    # Verify Google OAuth tokens
+PyJWT>=2.8                           # Decode Apple JWT tokens
+cryptography>=42.0                   # Required for Apple auth
+
+# Production Server
+gunicorn>=21.0                       # WSGI HTTP Server for production
+
