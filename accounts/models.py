@@ -308,12 +308,21 @@ class PasswordResetToken(models.Model):
         related_name='password_reset_tokens'
     )
     
-    # Secure token (UUID)
+    # Secure token (UUID) - kept for the final reset step
     token = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
         help_text="Secure token for password reset"
     )
+
+    # NEW: 6-digit OTP code - used for the initial verification
+    otp_code = models.CharField(
+        max_length=6,
+        null=True,
+        blank=True,
+        help_text="6-digit verification code"
+    )
+
     
     # Expiry time (1 hour from creation)
     expires_at = models.DateTimeField(
@@ -339,6 +348,11 @@ class PasswordResetToken(models.Model):
     def is_expired(self):
         """Check if token has expired."""
         return timezone.now() > self.expires_at
+
+    @staticmethod
+    def generate_otp():
+        """Generate a random 6-digit OTP."""
+        return ''.join(random.choices(string.digits, k=6))
 
 
 class PendingRegistration(models.Model):

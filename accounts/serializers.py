@@ -179,6 +179,25 @@ class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 
+class VerifyPasswordResetOTPSerializer(serializers.Serializer):
+    """
+    Serializer for verifying password reset OTP.
+    
+    Required fields:
+    - email: User's email
+    - otp: 6-digit OTP code
+    """
+    
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6, max_length=6)
+    
+    def validate_otp(self, value):
+        """Ensure OTP is numeric."""
+        if not value.isdigit():
+            raise serializers.ValidationError("OTP must be 6 digits.")
+        return value
+
+
 class ResetPasswordSerializer(serializers.Serializer):
     """
     Serializer for password reset.

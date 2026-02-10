@@ -239,7 +239,41 @@ Content-Type: application/json
 
 ---
 
-## 8. Reset Password
+## 8. Verify Reset OTP
+
+**POST** `/api/v1/auth/verify-reset-otp/`
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Body (raw JSON):**
+```json
+{
+    "email": "john@example.com",
+    "otp": "123456"
+}
+```
+
+**Success Response (200):**
+```json
+{
+    "message": "OTP verified successfully.",
+    "token": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Error Response (400):**
+```json
+{
+    "error": "Invalid OTP."
+}
+```
+
+---
+
+## 9. Reset Password
 
 **POST** `/api/v1/auth/reset-password/`
 
@@ -273,7 +307,7 @@ Content-Type: application/json
 
 ---
 
-## 9. Change Password (Authenticated)
+## 10. Change Password (Authenticated)
 
 **POST** `/api/v1/auth/change-password/`
 
@@ -308,7 +342,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 10. Get Profile (Authenticated)
+## 11. Get Profile (Authenticated)
 
 **GET** `/api/v1/auth/profile/`
 
@@ -338,7 +372,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 11. Update Profile (Authenticated)
+## 12. Update Profile (Authenticated)
 
 **PATCH** `/api/v1/auth/profile/`
 
@@ -369,7 +403,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 12. Google Login
+## 13. Google Login
 
 **POST** `/api/v1/auth/google/`
 
@@ -403,7 +437,7 @@ Content-Type: application/json
 
 ---
 
-## 13. Apple Login
+## 14. Apple Login
 
 **POST** `/api/v1/auth/apple/`
 

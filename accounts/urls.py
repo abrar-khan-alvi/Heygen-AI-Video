@@ -46,8 +46,12 @@ urlpatterns = [
     # ==========================================================================
     
     # POST /api/v1/auth/forgot-password/
-    # Request password reset email
+    # Request password reset email (sends OTP)
     path('forgot-password/', views.ForgotPasswordView.as_view(), name='forgot-password'),
+    
+    # POST /api/v1/auth/verify-reset-otp/
+    # Verify OTP and get reset token
+    path('verify-reset-otp/', views.VerifyPasswordResetOTPView.as_view(), name='verify-reset-otp'),
     
     # POST /api/v1/auth/reset-password/
     # Reset password using token

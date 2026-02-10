@@ -84,24 +84,24 @@ def send_password_reset_email(user):
     # Delete existing tokens for this user
     PasswordResetToken.objects.filter(user=user).delete()
     
-    # Create new token
-    reset_token = PasswordResetToken.objects.create(user=user)
-    
-    # Build reset URL (frontend will handle this)
-    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
+    # Create new token with OTP
+    reset_token = PasswordResetToken.objects.create(
+        user=user,
+        otp_code=PasswordResetToken.generate_otp()
+    )
     
     # Email content
-    subject = '🔑 Reset Your Password'
+    subject = '🔑 Reset Your Password - OTP Code'
     
     # Plain text version (fallback)
     text_content = f"""
 Hello {user.username},
 
-You requested to reset your password. Click the link below to reset it:
+You requested to reset your password. Your OTP code is:
 
-{reset_url}
+{reset_token.otp_code}
 
-This link will expire in 1 hour.
+This code will expire in 1 hour.
 
 If you didn't request this, please ignore this email.
 
@@ -112,7 +112,7 @@ The Team
     # HTML version from template
     html_content = render_to_string('emails/password_reset.html', {
         'username': user.username,
-        'reset_url': reset_url,
+        'otp_code': reset_token.otp_code,
     })
     
     # Send email with both text and HTML versions

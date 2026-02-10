@@ -28,6 +28,7 @@ from .serializers import (
     ResendOTPSerializer,
     LoginSerializer,
     ForgotPasswordSerializer,
+    VerifyPasswordResetOTPSerializer,
     ResetPasswordSerializer,
     ChangePasswordSerializer,
     ProfileSerializer,
@@ -441,6 +442,63 @@ class ForgotPasswordView(APIView):
         # Always return success (security)
         return Response({
             'message': 'If an account exists with this email, a reset link has been sent.'
+        }, status=status.HTTP_200_OK)
+
+
+class VerifyPasswordResetOTPView(APIView):
+    """
+    Verify OTP for password reset.
+    
+    POST /api/v1/auth/verify-reset-otp/
+    
+    Request body:
+    {
+        "email": "john@example.com",
+        "otp": "123456"
+    }
+    
+    Response (success):
+    {
+        "message": "OTP verified successfully.",
+        "token": "uuid-token"  // Use this token for the next step (Reset Password)
+    }
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        serializer = VerifyPasswordResetOTPSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        email = serializer.validated_data['email'].lower()
+        otp = serializer.validated_data['otp']
+        
+        try:
+            user = CustomUser.objects.get(email=email)
+            reset_token = PasswordResetToken.objects.get(user=user)
+        except (CustomUser.DoesNotExist, PasswordResetToken.DoesNotExist):
+            return Response(
+                {'error': 'Invalid request or expired session.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if reset_token.is_expired:
+            reset_token.delete()
+            return Response(
+                {'error': 'OTP has expired. Please request a new one.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if reset_token.otp_code != otp:
+            return Response(
+                {'error': 'Invalid OTP.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        return Response({
+            'message': 'OTP verified successfully.',
+            'token': reset_token.token
         }, status=status.HTTP_200_OK)
 
 
