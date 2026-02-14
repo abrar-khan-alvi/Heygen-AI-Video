@@ -6,4 +6,6 @@ python-dotenv>=1.0
 google-auth>=2.27                    
 PyJWT>=2.8                          
 cryptography>=42.0               
-gunicorn>=21.0                      
+gunicorn>=21.0
+celery>=5.3
+redis>=5.0                      

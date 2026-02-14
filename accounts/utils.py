@@ -58,15 +58,14 @@ The Team
         'expiry_minutes': settings.OTP_EXPIRY_MINUTES,
     })
     
-    # Send email with both text and HTML versions
-    email = EmailMultiAlternatives(
+    # Send email asynchronously
+    from .tasks import send_otp_email_task
+    send_otp_email_task.delay(
+        email=user.email,
         subject=subject,
-        body=text_content,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[user.email]
+        text_content=text_content,
+        html_content=html_content
     )
-    email.attach_alternative(html_content, "text/html")
-    email.send(fail_silently=False)
     
     return otp
 
@@ -115,15 +114,14 @@ The Team
         'otp_code': reset_token.otp_code,
     })
     
-    # Send email with both text and HTML versions
-    email = EmailMultiAlternatives(
+    # Send email asynchronously
+    from .tasks import send_password_reset_email_task
+    send_password_reset_email_task.delay(
+        email=user.email,
         subject=subject,
-        body=text_content,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[user.email]
+        text_content=text_content,
+        html_content=html_content
     )
-    email.attach_alternative(html_content, "text/html")
-    email.send(fail_silently=False)
     
     return reset_token
 
