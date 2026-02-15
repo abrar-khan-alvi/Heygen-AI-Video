@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     
     # Local apps
     'accounts',                          # Our authentication app
+    'videos',                            # AI Video Generation app
 ]
 
 MIDDLEWARE = [
@@ -304,4 +305,11 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+
+# =============================================================================
+# HEYGEN SETTINGS
+# =============================================================================
+
+HEYGEN_API_KEY = os.getenv('HEYGEN_API_KEY')
 

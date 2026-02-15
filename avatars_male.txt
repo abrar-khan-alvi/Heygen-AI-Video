@@ -1,0 +1,27 @@
+Found 598 male avatars. Showing top 5:
+
+Avatar #1
+  Name: None (male)
+  ID:   Aditya_public_4
+  Img:  https://files2.heygen.ai/avatar/v3/17ad4b824e5a47e8b4f61e6a9cd346e7_62180/preview_target.webp
+----------------------------------------
+Avatar #2
+  Name: None (male)
+  ID:   Aditya_public_1
+  Img:  https://files2.heygen.ai/avatar/v3/8c30ef92b2334d919e0f754e38c1a1ae_62150/preview_target.webp
+----------------------------------------
+Avatar #3
+  Name: None (male)
+  ID:   Aditya_public_5
+  Img:  https://files2.heygen.ai/avatar/v3/cfcffd36e22045e9b47ea2b95b3f53af_62190/preview_target.webp
+----------------------------------------
+Avatar #4
+  Name: None (male)
+  ID:   Aditya_public_2
+  Img:  https://files2.heygen.ai/avatar/v3/6ff8854f65b947718a29941f6d24a4d2_62160/preview_target.webp
+----------------------------------------
+Avatar #5
+  Name: None (male)
+  ID:   Aditya_public_3
+  Img:  https://files2.heygen.ai/avatar/v3/7fe122f58cc545cab9006ec6753f599b_62170/preview_target.webp
+----------------------------------------

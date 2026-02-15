@@ -13,6 +13,7 @@ services:
       - CELERY_BROKER_URL=redis://backend-redis:6379/0
       - CELERY_RESULT_BACKEND=redis://backend-redis:6379/1
       - DB_DIR=/app
+      - HEYGEN_API_KEY=${HEYGEN_API_KEY}
     depends_on:
       - backend-redis
     networks:
@@ -29,6 +30,7 @@ services:
       - CELERY_BROKER_URL=redis://backend-redis:6379/0
       - CELERY_RESULT_BACKEND=redis://backend-redis:6379/1
       - DB_DIR=/app
+      - HEYGEN_API_KEY=${HEYGEN_API_KEY}
     depends_on:
       - backend-redis
       - web
