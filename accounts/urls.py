@@ -80,4 +80,5 @@ urlpatterns = [
     # POST /api/v1/auth/apple/
     # Login/register with Apple
     path('apple/', views.AppleAuthView.as_view(), name='apple-auth'),
+    
 ]

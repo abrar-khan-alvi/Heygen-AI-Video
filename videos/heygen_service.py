@@ -75,3 +75,49 @@ class HeyGenClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"HeyGen Status Check Failed: {e}")
             raise
+
+    def get_avatars(self):
+        """
+        Fetches the list of avatars from HeyGen API with caching.
+        Cache duration: 1 hour (3600 seconds)
+        """
+        from django.core.cache import cache
+        
+        CACHE_KEY = "heygen_avatars_list_v2"
+        cached_data = cache.get(CACHE_KEY)
+        
+        if cached_data:
+            return cached_data
+            
+        url = f"{self.BASE_URL}/v2/avatars"
+        
+        try:
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+            avatars = response.json().get('data', {}).get('avatars', [])
+            
+            # Cache the result if successful
+            if avatars:
+                cache.set(CACHE_KEY, avatars, timeout=3600)  # 1 Hour
+                
+            return avatars
+        except requests.exceptions.RequestException as e:
+            logger.error(f"HeyGen Avatar Fetch Failed: {e}")
+            return []
+    def get_avatar_details(self, avatar_id):
+        """
+        Fetches details for a specific avatar using the dedicated endpoint.
+        """
+        url = f"{self.BASE_URL}/v2/avatar/{avatar_id}/details"
+        
+        try:
+            response = requests.get(url, headers=self.headers)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return response.json().get('data')
+        except requests.exceptions.RequestException as e:
+            logger.error(f"HeyGen Avatar Details Fetch Failed for {avatar_id}: {e}")
+            # Fallback to list lookup if direct fetch fails? 
+            # For now, let's return None so the view handles it (or falls back to defaults)
+            return None

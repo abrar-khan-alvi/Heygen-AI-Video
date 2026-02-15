@@ -139,6 +139,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         default=AuthProvider.EMAIL,
         help_text="How did the user sign up?"
     )
+
+    # Authentication provider tracking
+    auth_provider = models.CharField(
+        max_length=20,
+        choices=AuthProvider.choices,
+        default=AuthProvider.EMAIL,
+        help_text="How did the user sign up?"
+    )
     
     # Social auth identifiers (nullable, set when using social login)
     google_id = models.CharField(

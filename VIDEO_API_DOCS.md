@@ -32,6 +32,28 @@ Creates a new project and starts the generation process in the background.
 }
 ```
 
+### 3. List Available Avatars
+**Endpoint:** `GET /api/v1/videos/avatars/`
+
+**Query Parameters:**
+- `gender` (optional): `Male` or `Female`
+- `outfit` (optional): `Business`, `Casual`, `Doctor`, `Sport`
+- `pose` (optional): `Standing`, `Sitting`, `Closeup`
+
+**Response:**
+```json
+[
+    {
+        "id": "Abigail_expressive_2024112501",
+        "name": "Abigail",
+        "gender": "Female",
+        "outfit": "Casual",
+        "pose": "Standing",
+        "preview_url": "..."
+    }
+]
+```
+
 ### 5. Check Real-Time Video Status
 **Endpoint:** `GET /api/v1/videos/projects/{id}/status/`
 This forces a check against HeyGen's API and updates the local database.

@@ -840,3 +840,4 @@ class AppleAuthView(APIView):
             username = f"{base}{random.randint(1000, 9999)}"
         
         return username
+

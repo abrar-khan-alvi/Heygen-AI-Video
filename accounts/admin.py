@@ -7,7 +7,7 @@ so we can manage users through the admin interface.
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import CustomUser, OTPVerification, PasswordResetToken
+from .models import CustomUser
 
 
 @admin.register(CustomUser)
@@ -61,23 +61,20 @@ class CustomUserAdmin(BaseUserAdmin):
     )
 
 
-@admin.register(OTPVerification)
-class OTPVerificationAdmin(admin.ModelAdmin):
-    """Admin for OTP verification records."""
+# =============================================================================
+# HIDE TOKEN BLACKLIST
+# =============================================================================
+
+try:
+    from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+    from django.contrib.admin.sites import NotRegistered
     
-    list_display = ('user', 'otp_code', 'expires_at', 'attempts', 'created_at')
-    list_filter = ('created_at',)
-    search_fields = ('user__email', 'otp_code')
-    ordering = ('-created_at',)
-    readonly_fields = ('id', 'created_at')
+    admin.site.unregister(OutstandingToken)
+    admin.site.unregister(BlacklistedToken)
+except ImportError:
+    pass
+except NotRegistered:
+    pass
 
 
-@admin.register(PasswordResetToken)
-class PasswordResetTokenAdmin(admin.ModelAdmin):
-    """Admin for password reset tokens."""
-    
-    list_display = ('user', 'token', 'expires_at', 'created_at')
-    list_filter = ('created_at',)
-    search_fields = ('user__email',)
-    ordering = ('-created_at',)
-    readonly_fields = ('id', 'token', 'created_at')
+

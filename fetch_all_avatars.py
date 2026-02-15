@@ -42,7 +42,7 @@ def fetch_and_save_avatars():
             avatar_id = avatar.get('avatar_id')
             gender = avatar.get('gender', 'unknown')
             
-            # Auto-tagging
+            # Auto-tagging Outfit
             outfit = "Casual" # Default
             name_lower = name.lower()
             id_lower = avatar_id.lower()
@@ -52,15 +52,23 @@ def fetch_and_save_avatars():
                     outfit = category
                     break
             
+            # Auto-tagging Pose
+            pose = "Standing" # Default
+            if "sitting" in id_lower or "sofa" in id_lower or "chair" in id_lower:
+                pose = "Sitting"
+            elif "closeup" in id_lower or "portrait" in id_lower or "head" in id_lower:
+                pose = "Closeup"
+            
             processed_avatars.append({
                 "id": avatar_id,
                 "name": name,
-                "gender": gender.capitalize(), # Ensure "Male"/"Female"
+                "gender": gender.capitalize(), 
                 "outfit": outfit,
+                "pose": pose,
                 "preview_url": avatar.get('preview_image_url')
             })
             
-        # Save to file in the videos app directory for easy access
+        # Save to file in the videos app directory
         output_path = os.path.join(settings.BASE_DIR, 'videos', 'avatars.json')
         with open(output_path, 'w') as f:
             json.dump(processed_avatars, f, indent=2)
@@ -68,9 +76,14 @@ def fetch_and_save_avatars():
         print(f"Saved {len(processed_avatars)} avatars to {output_path}")
         
         # Print some stats
-        print("\nBreakdown:")
+        print("\nBreakdown by Outfit:")
         for key in keywords.keys():
             count = len([a for a in processed_avatars if a['outfit'] == key])
+            print(f"  {key}: {count}")
+
+        print("\nBreakdown by Pose:")
+        for key in ["Standing", "Sitting", "Closeup"]:
+            count = len([a for a in processed_avatars if a['pose'] == key])
             print(f"  {key}: {count}")
             
     except Exception as e:
