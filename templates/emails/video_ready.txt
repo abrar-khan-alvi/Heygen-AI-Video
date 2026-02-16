@@ -1,0 +1,8 @@
+Hello {{ user.username }},
+
+Great news! Your video project "{{ project_title }}" has finished rendering.
+
+You can watch it here:
+{{ video_url }}
+
+Thanks for using our AI Video Generator!

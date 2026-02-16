@@ -6,6 +6,8 @@ services:
       - .:/app
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - DEBUG=True
       - SECRET_KEY=django-insecure-dev-key
@@ -13,7 +15,6 @@ services:
       - CELERY_BROKER_URL=redis://backend-redis:6379/0
       - CELERY_RESULT_BACKEND=redis://backend-redis:6379/1
       - DB_DIR=/app
-      - HEYGEN_API_KEY=${HEYGEN_API_KEY}
     depends_on:
       - backend-redis
     networks:
@@ -24,13 +25,14 @@ services:
     command: celery -A core worker -l info
     volumes:
       - .:/app
+    env_file:
+      - .env
     environment:
       - DEBUG=True
       - SECRET_KEY=django-insecure-dev-key
       - CELERY_BROKER_URL=redis://backend-redis:6379/0
       - CELERY_RESULT_BACKEND=redis://backend-redis:6379/1
       - DB_DIR=/app
-      - HEYGEN_API_KEY=${HEYGEN_API_KEY}
     depends_on:
       - backend-redis
       - web

@@ -20,11 +20,13 @@ def generate_video_task(self, project_id):
         # Construct the prompt from user inputs
         prompt = (
             f"Create a high-quality marketing video for the {project.industry} industry. "
+            f"Video Title: {project.title}. "
             f"Service Description: {project.service_description}. "
-            f"The presenter is a {project.gender}. " # Changed from "should be" to "is" to be more declarative
+            f"The presenter is a {project.gender}. "
             f"The background is a {project.background_type}. "
             f"The presenter is wearing {project.avatar_outfit} attire. "
-            f"Make it professional, engaging, and suitable for social media."
+            f"Make it professional, engaging, and suitable for social media. "
+            f"The video duration must be between 30 seconds to 33 seconds."
         )
         
         # Save the constructed prompt for reference
@@ -48,9 +50,7 @@ def generate_video_task(self, project_id):
         project.save()
         
         # Trigger monitoring task
-        # UPDATED: We disabled auto-monitoring to save resources. 
-        # Status will be checked on-demand when the user views the project.
-        # monitor_video_status_task.delay(project.id)
+        monitor_video_status_task.delay(project.id)
         
         return f"Started generation for project {project_id} (Video ID: {video_id})"
 
@@ -68,11 +68,56 @@ def generate_video_task(self, project_id):
 @shared_task(bind=True, max_retries=60)
 def monitor_video_status_task(self, project_id):
     """
-    DEPRECATED: Background monitoring is disabled in favor of on-demand checks.
-    Refer to videos/views.py -> VideoProjectDetailView.retrieve()
+    Background task to monitor video status.
+    Polls HeyGen API until completed or failed.
     """
-    return "Monitoring disabled."
-    # Original logic commented out below:
-    # try:
-    #     project = VideoProject.objects.get(id=project_id)
-    # ...
+    try:
+        project = VideoProject.objects.get(id=project_id)
+        
+        # Stop if already done
+        if project.status in [VideoProject.Status.COMPLETED, VideoProject.Status.FAILED]:
+            return f"Project {project_id} already reached final status: {project.status}"
+
+        if not project.heygen_video_id:
+            # If no ID yet, wait and retry
+            logger.warning(f"Project {project_id} has no HeyGen ID yet. Retrying...")
+            raise self.retry(countdown=30)
+
+        # Check HeyGen
+        client = HeyGenClient()
+        response = client.check_status(project.heygen_video_id)
+        data = response.get('data', {})
+        heygen_status = data.get('status')
+        video_url = data.get('video_url') or data.get('url')
+        
+        logger.info(f"Checking status for {project_id}: {heygen_status}")
+
+        if heygen_status == 'completed':
+            project.status = VideoProject.Status.COMPLETED
+            project.video_url = video_url
+            
+            from django.utils import timezone
+            project.completed_at = timezone.now()
+            project.save()
+            
+            # Send Email
+            print(f"DEBUG: Video {project_id} completed. Attempting to send email...")
+            from .utils import send_video_ready_email
+            send_video_ready_email(project)
+            
+            return f"Video {project_id} completed and email sent."
+
+        elif heygen_status == 'failed':
+            project.status = VideoProject.Status.FAILED
+            project.save()
+            return f"Video {project_id} failed generation."
+            
+        else:
+            # Still processing/pending -> Retry in 30s
+            raise self.retry(countdown=30)
+            
+    except VideoProject.DoesNotExist:
+        return "Project not found"
+    except Exception as e:
+        logger.error(f"Error monitoring video {project_id}: {e}")
+        raise self.retry(exc=e, countdown=60)

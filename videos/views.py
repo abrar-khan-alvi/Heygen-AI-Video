@@ -49,7 +49,7 @@ class VideoProjectListCreateView(generics.ListCreateAPIView):
         # 3. Save Project
         project = serializer.save(user=self.request.user)
         
-        # 4. Trigger the Celery task
+        # 4. Trigger the Celery task (Task starts generation AND monitoring)
         generate_video_task.delay(project.id)
 
 class VideoProjectDetailView(generics.RetrieveAPIView):
@@ -86,6 +86,11 @@ class VideoProjectDetailView(generics.RetrieveAPIView):
                     from django.utils import timezone
                     if not instance.completed_at:
                         instance.completed_at = timezone.now()
+                        
+                    # Send Email Notification
+                    from .utils import send_video_ready_email
+                    send_video_ready_email(instance)
+                        
                 elif heygen_status == 'failed':
                     instance.status = VideoProject.Status.FAILED
                 elif heygen_status in ['processing', 'rendering']:
@@ -216,9 +221,18 @@ class VideoStatusView(views.APIView):
             video_url = data.get('video_url') or data.get('url')
             
             if heygen_status == 'completed':
-                project.status = VideoProject.Status.COMPLETED
-                project.video_url = video_url
-                project.save()
+                # Only mark completed if it wasn't already (to avoid re-sending emails excessively)
+                if project.status != VideoProject.Status.COMPLETED:
+                     project.status = VideoProject.Status.COMPLETED
+                     project.video_url = video_url
+                     project.save()
+                     
+                     from .utils import send_video_ready_email
+                     send_video_ready_email(project)
+                else:
+                    # Update URL just in case
+                    project.video_url = video_url
+                    project.save()
             elif heygen_status == 'failed':
                 project.status = VideoProject.Status.FAILED
                 project.save()
