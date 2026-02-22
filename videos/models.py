@@ -34,7 +34,7 @@ class VideoProject(models.Model):
     # System Fields
     constructed_prompt = models.TextField(blank=True, help_text="The full prompt sent to HeyGen")
     heygen_video_id = models.CharField(max_length=100, blank=True, null=True, help_text="ID returned by HeyGen API")
-    video_url = models.URLField(blank=True, null=True, help_text="Final video URL")
+    video_url = models.URLField(max_length=2048, blank=True, null=True, help_text="Final video URL")
     
     status = models.CharField(
         max_length=20,

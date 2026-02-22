@@ -5,7 +5,32 @@ Generate AI marketing videos using HeyGen's Video Agent.
 
 ## Endpoints
 
-### 1. Generate Video
+### 1. Generate Video Script (Gemini)
+**POST** `/api/v1/videos/generate-script/`
+
+Generates a marketing script based on a topic using Google Gemini AI.
+
+**Body:**
+```json
+{
+  "title": "Luxury Watch Marketing",
+  "industry": "Fashion",
+  "service_description": "Swiss-made automatic watches",
+  "gender": "Male",
+  "outfit": "Tuxedo",
+  "background": "Luxury Penthouse",
+  "duration": "30 seconds"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "script": "**Hook:** (0:00-0:05)\n[Close up of watch face...]\n"
+}
+```
+
+### 2. Generate Video
 **POST** `/api/v1/videos/projects/`
 
 Creates a new project and starts the generation process in the background.

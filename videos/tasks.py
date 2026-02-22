@@ -93,19 +93,34 @@ def monitor_video_status_task(self, project_id):
         logger.info(f"Checking status for {project_id}: {heygen_status}")
 
         if heygen_status == 'completed':
-            project.status = VideoProject.Status.COMPLETED
-            project.video_url = video_url
-            
             from django.utils import timezone
-            project.completed_at = timezone.now()
-            project.save()
+            now = timezone.now()
             
-            # Send Email
-            print(f"DEBUG: Video {project_id} completed. Attempting to send email...")
-            from .utils import send_video_ready_email
-            send_video_ready_email(project)
+            # Atomic update to prevent race conditions
+            # Only update if status is NOT already COMPLETED
+            rows_updated = VideoProject.objects.filter(
+                id=project_id
+            ).exclude(
+                status=VideoProject.Status.COMPLETED
+            ).update(
+                status=VideoProject.Status.COMPLETED,
+                video_url=video_url,
+                completed_at=now,
+                updated_at=now
+            )
             
-            return f"Video {project_id} completed and email sent."
+            if rows_updated > 0:
+                # We successfully claimed the completion event
+                project.refresh_from_db()
+                
+                # Send Email
+                print(f"DEBUG: Video {project_id} completed. Attempting to send email...")
+                from .utils import send_video_ready_email
+                send_video_ready_email(project)
+                
+                return f"Video {project_id} completed and email sent."
+            else:
+                 return f"Video {project_id} already marked completed by another process."
 
         elif heygen_status == 'failed':
             project.status = VideoProject.Status.FAILED

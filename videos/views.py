@@ -79,29 +79,45 @@ class VideoProjectDetailView(generics.RetrieveAPIView):
                 
                 # Map HeyGen statuses to our DB statuses
                 if heygen_status == 'completed':
-                    instance.status = VideoProject.Status.COMPLETED
-                    instance.video_url = video_url
-                    
-                    # Set completion time if not already set
                     from django.utils import timezone
-                    if not instance.completed_at:
-                        instance.completed_at = timezone.now()
+                    now = timezone.now()
+                    
+                    # Atomic update
+                    rows_updated = VideoProject.objects.filter(
+                        pk=instance.pk
+                    ).exclude(
+                        status=VideoProject.Status.COMPLETED
+                    ).update(
+                        status=VideoProject.Status.COMPLETED,
+                        video_url=video_url,
+                        completed_at=now,
+                        updated_at=now
+                    )
+                    
+                    if rows_updated > 0:
+                        # We are the first to mark it completed
+                        instance.refresh_from_db()
+                        from .utils import send_video_ready_email
+                        send_video_ready_email(instance)
+                    else:
+                        # Already completed, just refresh to show latest
+                        instance.refresh_from_db()
                         
-                    # Send Email Notification
-                    from .utils import send_video_ready_email
-                    send_video_ready_email(instance)
+                        # Use atomic update here too just in case URL changed (e.g. expired signed URL)
+                        if instance.video_url != video_url:
+                             VideoProject.objects.filter(pk=instance.pk).update(video_url=video_url)
+                             instance.video_url = video_url # Update object in memory
                         
                 elif heygen_status == 'failed':
                     instance.status = VideoProject.Status.FAILED
+                    instance.save() 
                 elif heygen_status in ['processing', 'rendering']:
-                    instance.status = VideoProject.Status.PROCESSING
+                    if instance.status != VideoProject.Status.PROCESSING:
+                        instance.status = VideoProject.Status.PROCESSING
+                        instance.save()
                 
-                # Edge Case: If it was already completed but missed the timestamp (backfill)
-                if instance.status == VideoProject.Status.COMPLETED and not instance.completed_at:
-                    from django.utils import timezone
-                    instance.completed_at = timezone.now()
-
-                instance.save()
+                # Ensure we have the latest data
+                instance.refresh_from_db()
             except Exception as e:
                 # If check fails, just ignore and return old status, don't break the view
                 pass
@@ -221,18 +237,30 @@ class VideoStatusView(views.APIView):
             video_url = data.get('video_url') or data.get('url')
             
             if heygen_status == 'completed':
-                # Only mark completed if it wasn't already (to avoid re-sending emails excessively)
-                if project.status != VideoProject.Status.COMPLETED:
-                     project.status = VideoProject.Status.COMPLETED
-                     project.video_url = video_url
-                     project.save()
-                     
+                from django.utils import timezone
+                now = timezone.now()
+
+                # Atomic update
+                rows_updated = VideoProject.objects.filter(
+                    pk=project.pk
+                ).exclude(
+                    status=VideoProject.Status.COMPLETED
+                ).update(
+                    status=VideoProject.Status.COMPLETED,
+                    video_url=video_url,
+                    completed_at=now,
+                    updated_at=now
+                )
+                
+                if rows_updated > 0:
+                     project.refresh_from_db()
                      from .utils import send_video_ready_email
                      send_video_ready_email(project)
                 else:
-                    # Update URL just in case
-                    project.video_url = video_url
-                    project.save()
+                    # Update URL just in case it changed (but don't send email)
+                    if project.video_url != video_url:
+                        project.video_url = video_url
+                        project.save()
             elif heygen_status == 'failed':
                 project.status = VideoProject.Status.FAILED
                 project.save()
@@ -248,3 +276,49 @@ class VideoStatusView(views.APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+
+class GenerateScriptView(APIView):
+    """
+    API View to generate a video script using Gemini AI.
+    POST /api/v1/videos/generate-script/
+    Body: { "title": "...", "industry": "...", "service_description": "...", "gender": "...", "outfit": "...", "background": "...", "duration": "30 seconds" }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        title = request.data.get('title')
+        industry = request.data.get('industry', 'General')
+        service_description = request.data.get('service_description', '')
+        gender = request.data.get('gender', 'Professional')
+        outfit = request.data.get('outfit', 'Business Attire')
+        background = request.data.get('background', 'Professional Office')
+        duration = request.data.get('duration', '30 seconds')
+
+        if not title:
+            return Response({"error": "Title is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from .gemini_service import GeminiService
+            service = GeminiService()
+            script = service.generate_script(
+                title=title,
+                industry=industry,
+                service_description=service_description,
+                gender=gender,
+                outfit=outfit,
+                background=background,
+                duration=duration
+            )
+
+            if script:
+                return Response({"script": script}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Failed to generate script."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -313,3 +313,10 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 HEYGEN_API_KEY = os.getenv('HEYGEN_API_KEY')
 
+
+# =============================================================================
+# GEMINI AI SETTINGS
+# =============================================================================
+
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
