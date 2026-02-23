@@ -17,7 +17,35 @@ def generate_video_task(self, project_id):
         project.status = VideoProject.Status.PROCESSING
         project.save()
 
-        # Construct the prompt from user inputs
+        # Generate the video script using Gemini AI
+        from .gemini_service import GeminiService
+        try:
+            gemini_service = GeminiService()
+            script_json = gemini_service.generate_script(
+                title=project.title,
+                industry=project.industry,
+                service_description=project.service_description,
+                gender=project.gender,
+                outfit=project.avatar_outfit,
+                background=project.background_type,
+                duration="30 seconds"
+            )
+            
+            # Parse the JSON since we forced response_mime_type="application/json"
+            import json
+            script_data = json.loads(script_json)
+            script_text = script_data.get('script_text', '')
+            
+            if not script_text:
+                 raise ValueError("Gemini returned invalid script_text.")
+                 
+        except Exception as e:
+            logger.error(f"Failed to generate Gemini script for Project {project_id}: {e}")
+            project.status = VideoProject.Status.FAILED
+            project.save()
+            return f"Failed to generate script: {e}"
+
+        # Construct the prompt instructing HeyGen to speak the generated script
         prompt = (
             f"Create a high-quality marketing video for the {project.industry} industry. "
             f"Video Title: {project.title}. "
@@ -25,11 +53,13 @@ def generate_video_task(self, project_id):
             f"The presenter is a {project.gender}. "
             f"The background is a {project.background_type}. "
             f"The presenter is wearing {project.avatar_outfit} attire. "
-            f"Make it professional, engaging, and suitable for social media. "
+            f"Please speak the following exact script naturally and professionally:\n\n"
+            f"\"{script_text}\"\n\n"
+            f"Make sure to engage the audience and maintain a professional demeanor suitable for social media. "
             f"The video duration must be between 30 seconds to 33 seconds."
         )
         
-        # Save the constructed prompt for reference
+        # Save the constructed script for reference
         project.constructed_prompt = prompt
         project.save()
 

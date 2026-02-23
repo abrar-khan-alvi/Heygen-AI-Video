@@ -24,7 +24,7 @@ class GeminiService:
         """
         try:
             prompt = (
-                f"You are a professional video scriptwriter for HeyGen AI. Your goal is to generate a structured video script that can be easily parsed or passed to HeyGen's video generation tools.\n\n"
+                f"You are a professional video scriptwriter for HeyGen AI. Your goal is to generate a compelling video script for an avatar.\n\n"
                 f"**Project Context:**\n"
                 f"- Title: {title}\n"
                 f"- Industry: {industry}\n"
@@ -34,24 +34,20 @@ class GeminiService:
                 f"- Avatar Persona: {gender} in {outfit}\n"
                 f"- Target Duration: {duration}\n\n"
                 f"**Instructions:**\n"
-                f"1. tailored specifically for a {duration} video.\n"
+                f"1. Generate the script tailored specifically for a {duration} video.\n"
                 f"2. Structure the output as a JSON object with the following schema:\n"
                 f"   {{\n"
-                f"     \"title\": \"Video Title\",\n"
-                f"     \"scenes\": [\n"
-                f"       {{\n"
-                f"         \"scene_number\": 1,\n"
-                f"         \"visual_description\": \"Detailed description of the avatar's action, gesture, or background content.\",\n"
-                f"         \"script_text\": \"The exact spoken words for the avatar. Use natural punctuation.\"\n"
-                f"       }}\n"
-                f"     ]\n"
+                f"     \"script_text\": \"The exact spoken words for the avatar. Use natural punctuation.\"\n"
                 f"   }}\n"
                 f"3. Ensure the content is engaging, professional, and directly addresses the audience.\n"
-                f"4. Do NOT include any markdown formatting (like ```json) in the response, just the raw JSON string if possible, or a clean JSON block."
+                f"4. ONLY generate the spoken script. Do NOT include scene numbers, visual descriptions, or titles."
             )
             
             logger.info(f"Generating script for title: {title}")
-            response = self.model.generate_content(prompt)
+            response = self.model.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json"}
+            )
             
             if response.text:
                 return response.text
