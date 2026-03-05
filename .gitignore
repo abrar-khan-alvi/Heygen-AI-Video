@@ -22,11 +22,21 @@ Thumbs.db
 *.log
 staticfiles/
 mediafiles/
+media/
+
+# Database
+db.sqlite3
+db/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
 
 # Coverage
 htmlcov/
 .coverage
 
-# NOTE: .env and db.sqlite3 are intentionally NOT ignored
-# This is for easy setup on another machine
-# In production, these should be in .gitignore!
+# Celery
+celerybeat-schedule
+celerybeat.pid

@@ -4,6 +4,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
+      - db_data:/app/db
     ports:
       - "8000:8000"
     env_file:
@@ -14,7 +15,7 @@ services:
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,web
       - CELERY_BROKER_URL=redis://backend-redis:6379/0
       - CELERY_RESULT_BACKEND=redis://backend-redis:6379/1
-      - DB_DIR=/app
+      - DB_DIR=/app/db
     depends_on:
       - backend-redis
     networks:
@@ -25,6 +26,7 @@ services:
     command: celery -A core worker -l info
     volumes:
       - .:/app
+      - db_data:/app/db
     env_file:
       - .env
     environment:
@@ -32,7 +34,7 @@ services:
       - SECRET_KEY=django-insecure-dev-key
       - CELERY_BROKER_URL=redis://backend-redis:6379/0
       - CELERY_RESULT_BACKEND=redis://backend-redis:6379/1
-      - DB_DIR=/app
+      - DB_DIR=/app/db
     depends_on:
       - backend-redis
       - web
@@ -49,3 +51,6 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  db_data:

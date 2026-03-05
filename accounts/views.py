@@ -241,13 +241,14 @@ class VerifyOTPView(APIView):
         
         # OTP is correct! Create the actual user
         try:
-            user = CustomUser.objects.create(
+            user = CustomUser(
                 email=pending.email,
                 username=pending.username,
-                password=pending.password_hash,  # Already hashed
                 is_email_verified=True,
-                auth_provider=CustomUser.AuthProvider.EMAIL
+                auth_provider=CustomUser.AuthProvider.EMAIL,
             )
+            user.password = pending.password_hash  # Already hashed, set directly
+            user.save()
         except Exception as e:
             return Response(
                 {'error': 'Failed to create account. Username or email may already be taken.'},
@@ -840,4 +841,3 @@ class AppleAuthView(APIView):
             username = f"{base}{random.randint(1000, 9999)}"
         
         return username
-

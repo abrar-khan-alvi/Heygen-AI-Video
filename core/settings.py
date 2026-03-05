@@ -1,11 +1,15 @@
 """
 Django settings for core project.
 
-This file is configured for:
+Configured for:
 - JWT Authentication with SimpleJWT
 - Django Rest Framework with API versioning
 - CORS support for frontend integration
 - Email sending for OTP verification
+- PostgreSQL database
+- Redis caching
+- Rate limiting
+- Celery for async tasks
 """
 
 import os
@@ -13,10 +17,8 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -24,14 +26,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY SETTINGS
 # =============================================================================
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# In production, set this via environment variable
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
+# IMPORTANT: Generate a strong key for production:
+# python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production-must-be-at-least-50-chars-long!!')
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-# Hosts allowed to access this Django application
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
@@ -40,28 +40,29 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 # =============================================================================
 
 INSTALLED_APPS = [
-    # Django built-in apps
+    # Django built-in
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
-    # Third-party apps
-    'rest_framework',                    # Django REST Framework
-    'rest_framework_simplejwt',          # JWT authentication
-    'rest_framework_simplejwt.token_blacklist',  # Allow logout by blacklisting tokens
-    'corsheaders',                       # Cross-Origin Resource Sharing
-    
+
+    # Third-party
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
+
     # Local apps
-    'accounts',                          # Our authentication app
-    'videos',                            # AI Video Generation app
+    'accounts',
+    'subscriptions',
+    'videogen',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # CORS - must be before CommonMiddleware
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -92,28 +93,37 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 # =============================================================================
 # DATABASE
-# Using SQLite for development. For production, use PostgreSQL/MySQL
+# PostgreSQL for production. SQLite for quick local dev only.
 # =============================================================================
 
-# Use environment variable for database path, defaults to project root
-# In Docker, this will be /app/data/db.sqlite3 (mounted volume)
-import os
-DB_DIR = os.getenv('DB_DIR', BASE_DIR)
-if isinstance(DB_DIR, str):
-    from pathlib import Path
-    DB_DIR = Path(DB_DIR)
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': DB_DIR / 'db.sqlite3',
+if os.getenv('DATABASE_URL') or os.getenv('DB_ENGINE', '').startswith('postgresql'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'backendgen'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 600,  # Keep connections open for 10 min
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
     }
-}
+else:
+    # SQLite fallback for local dev ONLY — not for production
+    DB_DIR = Path(os.getenv('DB_DIR', BASE_DIR))
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': DB_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # =============================================================================
 # CUSTOM USER MODEL
-# IMPORTANT: This must be set BEFORE running first migration
 # =============================================================================
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -124,20 +134,28 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 # =============================================================================
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {'min_length': 8},  # Minimum 8 characters
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+
+# =============================================================================
+# CACHE (Redis) — Required for rate limiting
+# =============================================================================
+
+REDIS_URL = os.getenv('REDIS_URL', os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {
+            'db': 1,
+        },
+    }
+}
 
 
 # =============================================================================
@@ -145,22 +163,36 @@ AUTH_PASSWORD_VALIDATORS = [
 # =============================================================================
 
 REST_FRAMEWORK = {
-    # Use JWT for authentication by default
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    
-    # Require authentication for all endpoints by default
-    # Individual views can override this with permission_classes = [AllowAny]
+
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    
-    # API Versioning - use URL path like /api/v1/
+
     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
     'DEFAULT_VERSION': 'v1',
     'ALLOWED_VERSIONS': ['v1'],
     'VERSION_PARAM': 'version',
+
+    # Rate limiting — protects against abuse
+    'DEFAULT_THROTTLE_CLASSES': [
+        'core.throttles.AnonBurstThrottle',
+        'core.throttles.AnonSustainedThrottle',
+        'core.throttles.UserBurstThrottle',
+        'core.throttles.UserSustainedThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon_burst': '10/minute',
+        'anon_sustained': '100/hour',
+        'user_burst': '30/minute',
+        'user_sustained': '500/hour',
+        'signup': '5/hour',
+        'otp': '5/minute',
+        'video_generate': '10/hour',
+        'script_generate': '20/hour',
+    },
 }
 
 
@@ -169,37 +201,18 @@ REST_FRAMEWORK = {
 # =============================================================================
 
 SIMPLE_JWT = {
-    # Access token: Short-lived, used for API requests
-    # Client stores in memory (not localStorage for security)
     'ACCESS_TOKEN_LIFETIME': timedelta(
-        minutes=int(os.getenv('ACCESS_TOKEN_LIFETIME_MINUTES', 15))
+        minutes=int(os.getenv('ACCESS_TOKEN_LIFETIME_MINUTES', 30))
     ),
-    
-    # Refresh token: Long-lived, used to get new access tokens
-    # Client stores securely (httpOnly cookie recommended)
     'REFRESH_TOKEN_LIFETIME': timedelta(
         days=int(os.getenv('REFRESH_TOKEN_LIFETIME_DAYS', 7))
     ),
-    
-    # Rotate refresh tokens - issue new refresh token with each refresh
-    # This limits the damage if a refresh token is stolen
     'ROTATE_REFRESH_TOKENS': True,
-    
-    # Blacklist old refresh tokens after rotation
-    # Prevents reuse of old tokens
     'BLACKLIST_AFTER_ROTATION': True,
-    
-    # Algorithm used to sign tokens
     'ALGORITHM': 'HS256',
-    
-    # Key used to sign tokens (uses Django's SECRET_KEY)
     'SIGNING_KEY': SECRET_KEY,
-    
-    # Token type claim
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    
-    # User identification in token
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
 }
@@ -209,37 +222,28 @@ SIMPLE_JWT = {
 # CORS SETTINGS
 # =============================================================================
 
-# For development, allow all origins
-# In production, specify your frontend URL
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
-
-# Allow credentials (cookies, auth headers)
 CORS_ALLOW_CREDENTIALS = True
 
 
 # =============================================================================
-# EMAIL SETTINGS (for OTP and password reset)
+# EMAIL SETTINGS
 # =============================================================================
 
-# Email backend - console for development, SMTP for production
 EMAIL_BACKEND = os.getenv(
-    'EMAIL_BACKEND', 
-    'django.core.mail.backends.console.EmailBackend'  # Prints emails to console
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend'
 )
-
-# SMTP settings (used when EMAIL_BACKEND is not console)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-
-# Default "from" email address
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@example.com')
 
 
 # =============================================================================
-# FRONTEND URL (for password reset links)
+# FRONTEND URL
 # =============================================================================
 
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
@@ -249,7 +253,7 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 # OTP SETTINGS
 # =============================================================================
 
-OTP_EXPIRY_MINUTES = 10  # OTP expires after 10 minutes
+OTP_EXPIRY_MINUTES = 10
 
 
 # =============================================================================
@@ -270,14 +274,18 @@ USE_TZ = True
 
 
 # =============================================================================
-# STATIC FILES
+# STATIC & MEDIA FILES
 # =============================================================================
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # =============================================================================
-# DEFAULT PRIMARY KEY FIELD TYPE
+# DEFAULT PRIMARY KEY
 # =============================================================================
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -287,23 +295,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CELERY SETTINGS
 # =============================================================================
 
-# Broker settings (Redis)
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-
-# Result backend settings (Redis)
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/1')
-
-# Serialization
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-
-# Timezone
 CELERY_TIMEZONE = TIME_ZONE
-
-# Optimization
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 
@@ -319,4 +318,40 @@ HEYGEN_API_KEY = os.getenv('HEYGEN_API_KEY')
 # =============================================================================
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
 
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+        },
+        'videogen': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'subscriptions': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}
