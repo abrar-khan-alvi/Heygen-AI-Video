@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'accounts',
     'subscriptions',
     'videogen',
+    'admin_api',
 ]
 
 MIDDLEWARE = [
@@ -176,6 +177,10 @@ REST_FRAMEWORK = {
     'ALLOWED_VERSIONS': ['v1'],
     'VERSION_PARAM': 'version',
 
+    # Pagination
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
+
     # Rate limiting — protects against abuse
     'DEFAULT_THROTTLE_CLASSES': [
         'core.throttles.AnonBurstThrottle',
@@ -192,6 +197,8 @@ REST_FRAMEWORK = {
         'otp': '5/minute',
         'video_generate': '10/hour',
         'script_generate': '20/hour',
+        'login': '10/minute',
+        'admin_action': '30/minute',
     },
 }
 
@@ -304,6 +311,18 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Periodic tasks (requires celery beat service running)
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    # Re-sync avatars from HeyGen every Monday at 03:00 UTC
+    # Keeps the local avatar cache fresh with any new HeyGen avatars
+    'sync-avatars-weekly': {
+        'task': 'videogen.tasks.sync_avatars_task',
+        'schedule': crontab(hour=3, minute=0, day_of_week=1),
+    },
+}
 
 
 # =============================================================================

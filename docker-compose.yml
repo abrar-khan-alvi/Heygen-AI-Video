@@ -41,6 +41,27 @@ services:
     networks:
       - app-network
 
+  beat:
+    build: .
+    command: celery -A core beat -l info
+    volumes:
+      - .:/app
+      - db_data:/app/db
+    env_file:
+      - .env
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-dev-key
+      - CELERY_BROKER_URL=redis://backend-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://backend-redis:6379/1
+      - DB_DIR=/app/db
+    depends_on:
+      - backend-redis
+      - web
+      - worker
+    networks:
+      - app-network
+
   backend-redis:
     image: redis:7-alpine
     ports:

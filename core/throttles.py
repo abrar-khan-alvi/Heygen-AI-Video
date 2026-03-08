@@ -65,3 +65,11 @@ class VideoGenerateThrottle(UserRateThrottle):
 class ScriptGenerateThrottle(UserRateThrottle):
     """Limit script generation requests."""
     scope = "script_generate"
+
+class LoginThrottle(AnonRateThrottle):
+    """Limit login attempts to prevent credential stuffing."""
+    scope = "login"
+
+class AdminActionThrottle(UserRateThrottle):
+    """Limit sensitive admin actions."""
+    scope = "admin_action"

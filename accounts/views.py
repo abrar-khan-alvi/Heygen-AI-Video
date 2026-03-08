@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+from django.contrib.auth.models import update_last_login
 
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
@@ -39,6 +40,7 @@ from .utils import (
     send_password_reset_email,
     verify_password_reset_token,
 )
+from core.throttles import LoginThrottle
 
 
 def get_tokens_for_user(user):
@@ -344,6 +346,7 @@ class LoginView(APIView):
     }
     """
     permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
     
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -354,6 +357,9 @@ class LoginView(APIView):
         user = serializer.validated_data['user']
         tokens = get_tokens_for_user(user)
         
+        # Explicitly update last_login
+        update_last_login(None, user)
+        
         return Response({
             'message': 'Login successful',
             'tokens': tokens,
@@ -361,6 +367,9 @@ class LoginView(APIView):
                 'id': str(user.id),
                 'username': user.username,
                 'email': user.email,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+                'admin_permissions': user.admin_permissions,
             }
         }, status=status.HTTP_200_OK)
 
@@ -720,6 +729,8 @@ class GoogleAuthView(APIView):
                 'id': str(user.id),
                 'username': user.username,
                 'email': user.email,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
             }
         }, status=status.HTTP_200_OK)
     
