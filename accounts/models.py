@@ -166,6 +166,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         help_text="Can the user access the admin site?"
     )
     
+    admin_permissions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Granular access rights for standard staff members"
+    )
+    
     # Timestamps
     date_joined = models.DateTimeField(
         default=timezone.now,
