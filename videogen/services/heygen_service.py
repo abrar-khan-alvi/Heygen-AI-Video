@@ -29,53 +29,24 @@ def _headers():
 def _build_video_agent_prompt(script, title, industry, service_description,
                                avatar_gender, avatar_outfit, background):
     outfit_desc = avatar_outfit or "professional"
-    outfit_instruction = f"- The spokesperson should appear in {outfit_desc} attire"
-
-    background_instruction = ""
-    if background:
-        background_instruction = f"""
-- When the avatar appears on screen, place them in front of a "{background}" background.
-  This background should be consistent every time the avatar is shown."""
-
-    prompt = f"""Create a 30-second professional marketing video.
-
-=== VIDEO TITLE ===
-{title}
-
-=== SPOKESPERSON ===
-- Gender: {avatar_gender}
-- Use a natural, professional {avatar_gender} voice that matches the avatar
-{outfit_instruction}{background_instruction}
-
-=== SCRIPT (spokesperson speaks these exact words) ===
-{script}
-
-=== VIDEO STYLE & PRODUCTION ===
-Use clean, modern, professional styled visuals. Leverage motion graphics as B-rolls and A-roll overlays. Use AI-generated videos and images when helpful. When real-world footage is needed, use Stock Media. Include an intro sequence and outro sequence using Motion Graphics.
-
-Specific visual directions:
-- Opening: Start with a dynamic motion graphics intro (animated text/logo reveal with the title "{title}") before the avatar appears
-- A-roll: Avatar speaking to camera with animated text overlays highlighting key points
-- B-roll: Use relevant stock footage and motion graphics between avatar scenes to illustrate the {industry} service
-- Motion graphics overlays: Display key benefits/features as animated text appearing while avatar speaks
-- Transitions: Use smooth, professional transitions between scenes (not hard cuts)
-- Lower thirds: Add subtle animated lower-third graphics
-- Closing: End with a motion graphics outro card with call-to-action text overlay
-
-=== FORMAT & PLATFORM ===
-- Duration: 30 seconds
-- Aspect ratio: 9:16 (vertical, optimized for TikTok, Instagram Reels, YouTube Shorts)
-- Add auto-generated captions/subtitles (large, bold, centered — social media style)
-- Pacing: Fast, punchy edits — keep viewer attention throughout
-- Music: Add subtle, upbeat background music that matches the energy
-
-=== COLOR & BRANDING ===
-- Use a professional color palette suitable for {industry}
-- Consistent typography and styling across all motion graphics
-- Clean, minimal aesthetic — not cluttered
-
-Make this video scroll-stopping, engaging, and ready to upload directly to social media."""
-
+    bg_desc = background or "professional office"
+    
+    prompt = (
+        f"Create a high-quality professional marketing video for the {industry} industry. "
+        f"Video Title: {title}. "
+        f"Service Description: {service_description}. "
+        f"The presenter is a {avatar_gender} wearing {outfit_desc} attire. "
+        
+        # Explicitly command the agent to GENERATE the background image:
+        f"Generate a highly detailed background image of a {bg_desc} and composite the presenter over it. Ensure the background is not black or empty. "
+        
+        f"Please speak the following exact script naturally and professionally:\n\n"
+        f"\"{script}\"\n\n"
+        f"Use clean, modern, professional styled visuals. Leverage motion graphics as A-roll overlays "
+        f"and include relevant B-roll footage where appropriate. Include an intro and outro with "
+        f"the title '{title}'. Add social-media style captions. "
+        f"The video duration must be approximately 30 seconds."
+    )
     return prompt
 
 

@@ -33,6 +33,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
 
 
 # =============================================================================
@@ -337,7 +338,7 @@ HEYGEN_API_KEY = os.getenv('HEYGEN_API_KEY')
 # =============================================================================
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3-flash-preview')
 
 
 # =============================================================================

@@ -37,7 +37,7 @@ STRICT RULES:
 1. Write EXACTLY 70-80 words total. Critical for 30-second timing.
 2. Write ONLY the words the spokesperson speaks out loud. Nothing else.
 3. Structure the script in 4 natural beats (don't label them, just write them as separate paragraphs):
-   - Beat 1 (~15 words): A punchy hook that grabs attention in the first 3 seconds
+   - Beat 1 (~15 words): A punchy hook that grabs attention in the first 3 seconds (e.g., a provocative question, a surprising fact, or a bold promise)
    - Beat 2 (~25 words): The problem or pain point the audience faces
    - Beat 3 (~25 words): How the service solves it (key value proposition)
    - Beat 4 (~10 words): A clear, bold call-to-action
@@ -49,7 +49,8 @@ STRICT RULES:
    - Beat numbers or labels
 5. Use short, punchy sentences. This is for social media — not a corporate presentation.
 6. Write in first person plural ("we") when referring to the company.
-7. Make it conversational, energetic, and scroll-stopping.
+7. Make it conversational, energetic, and professional.
+8. DO NOT start the script with "Stop scrolling!" or "Attention!". Be more creative with the hook.
 
 Output ONLY the spoken script. Start directly with the first word."""
 

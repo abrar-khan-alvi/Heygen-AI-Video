@@ -20,6 +20,9 @@ services:
       - backend-redis
     networks:
       - app-network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
   worker:
     build: .
@@ -40,6 +43,9 @@ services:
       - web
     networks:
       - app-network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
   beat:
     build: .
@@ -61,6 +67,9 @@ services:
       - worker
     networks:
       - app-network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
   backend-redis:
     image: redis:7-alpine
@@ -68,6 +77,9 @@ services:
       - "6379:6379"
     networks:
       - app-network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
 networks:
   app-network:
