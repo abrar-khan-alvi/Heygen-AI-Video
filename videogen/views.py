@@ -6,11 +6,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import CursorPagination
 
-from .models import VideoProject, Industry, Background, CachedAvatar
+from .models import VideoProject, Industry, Background, CachedAvatar, CachedVoice
 from .serializers import (
     IndustrySerializer,
     BackgroundSerializer,
     CachedAvatarSerializer,
+    CachedVoiceSerializer,
     ProjectCreateSerializer,
     ProjectPatchSerializer,
     ScriptFinalizeSerializer,
@@ -172,6 +173,135 @@ class AvatarDetailView(APIView):
         return Response(CachedAvatarSerializer(avatar).data)
 
 
+class VoiceListView(APIView):
+    """
+    GET /api/v1/videogen/options/voices/
+
+    Returns all synced voices from the HeyGen voice library.
+
+    Optional query params:
+      ?language_code=en-US   filter by language code
+      ?gender=male|female    filter by gender
+
+    Response:
+    [
+        {"voice_id": "...", "name": "...", "language": "...",
+         "language_code": "...", "gender": "...", "preview_audio_url": "..."},
+        ...
+    ]
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = CachedVoice.objects.filter(is_active=True)
+
+        language_code = request.query_params.get("language_code", "").strip()
+        gender = request.query_params.get("gender", "").lower().strip()
+
+        if language_code:
+            qs = qs.filter(language_code__iexact=language_code)
+        if gender:
+            qs = qs.filter(gender__iexact=gender)
+
+        return Response(CachedVoiceSerializer(qs, many=True).data)
+
+
+class TextToSpeechView(APIView):
+    """
+    POST /api/v1/videogen/tts/
+
+    Preview a script using a selected voice (text-to-speech).
+    Returns an audio URL you can play directly in the browser.
+
+    Body (option A — explicit text):
+        {
+            "voice_id": "abc123",
+            "text": "Hello, this is a preview of your script.",
+            "speed": "1.0"      (optional, default "1")
+            "language": "en"    (optional)
+            "locale": "en-US"   (optional)
+        }
+
+    Body (option B — use project's generated/finalized script):
+        {
+            "voice_id": "abc123",
+            "project_id": "<uuid>"
+        }
+
+    Response:
+        {"audio_url": "https://..."}
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        voice_id = request.data.get("voice_id", "").strip()
+        if not voice_id:
+            return Response({"detail": "voice_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        text = request.data.get("text", "").strip()
+
+        # If no text provided, look up the project's script
+        if not text:
+            project_id = request.data.get("project_id", "")
+            if not project_id:
+                return Response(
+                    {"detail": "Provide either 'text' or 'project_id'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            project = _get_project(project_id, user=request.user)
+            if not project:
+                return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Prefer finalized script, fall back to generated
+            text = project.finalized_script or project.generated_script
+            if not text:
+                return Response(
+                    {"detail": "Project has no script yet. Generate a script first."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        speed = request.data.get("speed", "1")
+        language = request.data.get("language") or None
+        locale = request.data.get("locale") or None
+
+        try:
+            result = heygen_service.text_to_speech(
+                voice_id=voice_id,
+                text=text,
+                speed=speed,
+                language=language,
+                locale=locale,
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(result)
+
+
+class AvatarVoiceView(APIView):
+    """
+    GET /api/v1/videogen/options/avatars/<avatar_id>/voice/
+
+    Returns the suggested voice for a specific avatar.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, avatar_id):
+        try:
+            avatar = CachedAvatar.objects.get(avatar_id=avatar_id, is_active=True)
+        except CachedAvatar.DoesNotExist:
+            return Response({"detail": "Avatar not found."}, status=404)
+
+        voice = avatar.get_suggested_voice()
+        if not voice:
+            return Response({"detail": "No suitable voice found."}, status=404)
+
+        return Response(CachedVoiceSerializer(voice).data)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCREEN 1 — Create draft project (industry)
 #
@@ -268,11 +398,20 @@ class ProjectUpdateView(APIView):
                 project.avatar_outfit = cached.outfit_category
                 project.avatar_preview_url = cached.preview_image_url
                 project.avatar_preview_video_url = cached.preview_video_url
+                
+                # Auto-select voice if one isn't explicitly provided
+                if "voice_id" not in data:
+                    project.voice_id = cached.default_voice_id
+
             except CachedAvatar.DoesNotExist:
                 logger.warning(f"Avatar {avatar_id} not in cache")
                 project.avatar_name = ""
                 project.avatar_gender = ""
                 project.avatar_outfit = ""
+        
+        # Save explicit voice_id if provided (overrides auto-selection)
+        if "voice_id" in data:
+            project.voice_id = data["voice_id"]
 
         # If user changes anything after script was generated,
         # reset status back to draft (script is now stale)
@@ -435,6 +574,7 @@ class VideoGenerateView(APIView):
         try:
             result = heygen_service.generate_video(
                 avatar_id=project.avatar_id,
+                voice_id=project.voice_id,
                 script=project.finalized_script,
                 title=project.title,
                 industry=project.industry,

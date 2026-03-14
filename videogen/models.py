@@ -65,6 +65,7 @@ class CachedAvatar(models.Model):
     angle = models.CharField(max_length=100, blank=True)
     preview_image_url = models.URLField(blank=True)
     preview_video_url = models.URLField(blank=True)
+    default_voice_id = models.CharField(max_length=255, blank=True, default="")
     is_active = models.BooleanField(default=True, db_index=True)
     synced_at = models.DateTimeField(auto_now=True)
 
@@ -79,6 +80,57 @@ class CachedAvatar(models.Model):
 
     def __str__(self):
         return f"{self.avatar_name} ({self.gender}, {self.outfit_category})"
+
+    def get_suggested_voice(self):
+        """
+        Returns a CachedVoice object based on:
+        1. default_voice_id if set and exists in CachedVoice.
+        2. First active voice where name matches avatar_name (case-insensitive) AND gender matches.
+        3. Fallback: First active English voice (language_code starts with 'en') matching gender.
+        """
+        # 1. Default
+        if self.default_voice_id:
+            voice = CachedVoice.objects.filter(voice_id=self.default_voice_id, is_active=True).first()
+            if voice:
+                return voice
+
+        # 2. Name match (case-insensitive) + Gender
+        voice = CachedVoice.objects.filter(
+            name__iexact=self.avatar_name,
+            gender=self.gender,
+            is_active=True
+        ).first()
+        if voice:
+            return voice
+
+        # 3. Fallback (First English + Gender)
+        return CachedVoice.objects.filter(
+            models.Q(language_code__istartswith="en") | models.Q(language__iexact="English"),
+            gender=self.gender,
+            is_active=True
+        ).first()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CACHED VOICE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class CachedVoice(models.Model):
+    """Stores the HeyGen voice library fetched from /v2/voices."""
+    voice_id = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    language = models.CharField(max_length=100, blank=True, default="")
+    language_code = models.CharField(max_length=20, blank=True, default="")
+    gender = models.CharField(max_length=10, blank=True, default="")
+    preview_audio_url = models.URLField(blank=True, default="")
+    is_active = models.BooleanField(default=True, db_index=True)
+    synced_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["language", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.language}, {self.gender})"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -119,6 +171,7 @@ class VideoProject(models.Model):
     avatar_outfit = models.CharField(max_length=200, blank=True, default="")
     avatar_preview_url = models.URLField(blank=True, default="")
     avatar_preview_video_url = models.URLField(blank=True, default="")
+    voice_id = models.CharField(max_length=255, blank=True, default="")
 
     # Script
     generated_script = models.TextField(blank=True, default="")

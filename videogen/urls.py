@@ -9,6 +9,9 @@ urlpatterns = [
     path("options/backgrounds/", views.BackgroundListView.as_view(), name="background-list"),
     path("options/avatars/", views.AvatarBrowseView.as_view(), name="avatar-browse"),
     path("options/avatars/<str:avatar_id>/", views.AvatarDetailView.as_view(), name="avatar-detail"),
+    path("options/avatars/<str:avatar_id>/voice/", views.AvatarVoiceView.as_view(), name="avatar-voice"),
+    path("options/voices/", views.VoiceListView.as_view(), name="voice-list"),
+    path("tts/", views.TextToSpeechView.as_view(), name="text-to-speech"),
 
     # ── Project flow ────────────────────────────────────────────────────
     # Screen 1: Create draft
