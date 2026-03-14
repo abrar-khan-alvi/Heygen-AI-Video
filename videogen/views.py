@@ -626,6 +626,13 @@ class VideoStatusView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Fallback: if status is processing but we haven't checked for a while, 
+        # or if user just landed here, make sure a task is running.
+        # (Though generating duplicate tasks is handled by the task check locally)
+        if project.status == VideoProject.StatusChoice.VIDEO_PROCESSING:
+            from .tasks import monitor_video_status_task
+            monitor_video_status_task.delay(str(project.id))
+
         try:
             result = heygen_service.get_video_status(project.heygen_video_id)
         except Exception as e:
