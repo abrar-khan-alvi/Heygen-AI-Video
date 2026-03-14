@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Industry, Background, CachedAvatar, VideoProject
+from .models import Industry, Background, CachedAvatar, CachedVoice, VideoProject
 
 
 @admin.register(Industry)
@@ -28,6 +28,15 @@ class CachedAvatarAdmin(admin.ModelAdmin):
     list_filter = ["gender", "outfit_category", "is_active"]
     search_fields = ["avatar_name", "avatar_id"]
     readonly_fields = ["avatar_id", "synced_at"]
+
+
+@admin.register(CachedVoice)
+class CachedVoiceAdmin(admin.ModelAdmin):
+    list_display = ["name", "language", "language_code", "gender", "voice_id", "is_active", "synced_at"]
+    list_editable = ["is_active"]
+    list_filter = ["language_code", "gender", "is_active"]
+    search_fields = ["name", "voice_id", "language"]
+    readonly_fields = ["voice_id", "synced_at"]
 
 
 @admin.register(VideoProject)

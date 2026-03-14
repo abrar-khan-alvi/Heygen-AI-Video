@@ -91,9 +91,9 @@ def monitor_video_status_task(self, project_id):
     except VideoProject.DoesNotExist:
         return "Project not found"
     except Exception as e:
-        logger.error(f"Error monitoring video {project_id}: {e}")
         # Only retry if it's not a Celery Retry exception
         from celery.exceptions import Retry
         if isinstance(e, Retry):
             raise e
+        logger.error(f"Error monitoring video {project_id}: {e}")
         raise self.retry(exc=e, countdown=60)

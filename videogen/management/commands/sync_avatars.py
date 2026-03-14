@@ -118,6 +118,7 @@ class Command(BaseCommand):
                     "angle": parsed.get("angle", ""),
                     "preview_image_url": avatar.get("preview_image_url", ""),
                     "preview_video_url": avatar.get("preview_video_url", ""),
+                    "default_voice_id": avatar.get("default_voice_id", "") or "",
                     "_score": score,
                 }
 
