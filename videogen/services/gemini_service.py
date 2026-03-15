@@ -1,9 +1,3 @@
-"""
-Gemini AI script generation using the new Google GenAI SDK (google-genai).
-All videos are fixed at ~30 seconds.
-Scripts contain ONLY the words the spokesperson will speak on camera.
-"""
-
 import logging
 from google import genai
 from django.conf import settings

@@ -19,20 +19,51 @@ def _headers():
 def _build_video_agent_prompt(script, title, industry, service_description,
                                avatar_gender, avatar_outfit, background):
     outfit_desc = avatar_outfit or "professional"
-    bg_desc = background or "professional office"
-    
-    # Absolute barebones prompt format proven to work
-    prompt = (
-        f"Create a high-quality vertical promotional video for the {industry} industry. "
-        f"Video Title: {title}. "
-        f"Service Description: {service_description}. "
-        f"The Avatar is a {avatar_gender} dressed in {outfit_desc} attire. "
-        f"CRITICAL VISUAL REQUIREMENT: Whenever the avatar appears in the frame, the background behind them MUST be a realistic {bg_desc}. "
-        f"The background must ALWAYS be visible when the avatar is speaking. Do not use black, blank, transparent, or empty backgrounds. "
-        f"Please speak the following exact script naturally and professionally:\n\n"
-        f"\"{script}\"\n\n"
-        f"Make it highly engaging, professional, and optimized for social media."
-    )
+    outfit_instruction = f"- The spokesperson should appear in {outfit_desc} attire"
+
+    background_instruction = ""
+    if background:
+        background_instruction = f"- CRITICAL VISUAL REQUIREMENT: When the avatar appears on screen, place them in front of a {background} background. This background should be consistent every time the avatar is shown. The background must ALWAYS be visible when the avatar is speaking. Do not use black, blank, transparent, or empty backgrounds."
+
+    prompt = f"""Create a 30-second professional marketing video.
+
+=== VIDEO TITLE ===
+{title}
+
+=== SPOKESPERSON ===
+- Gender: {avatar_gender}
+- Use a natural, professional {avatar_gender} voice that matches the avatar
+{outfit_instruction}{background_instruction}
+
+=== SCRIPT (spokesperson speaks these exact words) ===
+{script}
+
+=== VIDEO STYLE & PRODUCTION ===
+Use clean, modern, professional styled visuals. Leverage motion graphics as B-rolls and A-roll overlays. Use AI-generated videos and images when helpful. When real-world footage is needed, use Stock Media. Include an intro sequence and outro sequence using Motion Graphics.
+
+Specific visual directions:
+- Opening: Start with a dynamic motion graphics intro (animated text/logo reveal with the title "{title}") before the avatar appears
+- A-roll: Avatar speaking to camera with animated text overlays highlighting key points
+- B-roll: Use relevant stock footage and motion graphics between avatar scenes to illustrate the {industry} service
+- Motion graphics overlays: Display key benefits/features as animated text appearing while avatar speaks
+- Transitions: Use smooth, professional transitions between scenes (not hard cuts)
+- Lower thirds: Add subtle animated lower-third graphics
+- Closing: End with a motion graphics outro card with call-to-action text overlay
+
+=== FORMAT & PLATFORM ===
+- Duration: 30 seconds
+- Aspect ratio: 9:16 (vertical, optimized for TikTok, Instagram Reels, YouTube Shorts)
+- Add auto-generated captions/subtitles (large, bold, centered — social media style)
+- Pacing: Fast, punchy edits — keep viewer attention throughout
+- Music: Add subtle, upbeat background music that matches the energy
+
+=== COLOR & BRANDING ===
+- Use a professional color palette suitable for {industry}
+- Consistent typography and styling across all motion graphics
+- Clean, minimal aesthetic — not cluttered
+
+Make this video scroll-stopping, engaging, and ready to upload directly to social media."""
+
     return prompt
 
 
@@ -51,10 +82,6 @@ def generate_video(avatar_id, voice_id, script, title, industry, service_descrip
         "duration_sec": 33,
         "orientation": "portrait",
     }
-    
-    # HeyGen's /v1/video_agent/generate endpoint strictly rejects 'voice_id' in config:
-    # "config.voice_id is invalid: Extra inputs are not permitted"
-    # The avatar's default voice will be used instead.
 
     payload = {
         "prompt": prompt,
