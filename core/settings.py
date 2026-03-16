@@ -298,6 +298,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Raise the POST field limit — needed when Django admin lists large tables
+# (e.g. CachedVoice after a full HeyGen sync can exceed the default 1000)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10_000
+
 
 # =============================================================================
 # CELERY SETTINGS
