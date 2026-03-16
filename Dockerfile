@@ -23,8 +23,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the project code into the container
 COPY . .
 
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
 # Expose port 8000
 EXPOSE 8000
 
-# Default command (can be overridden in docker-compose)
+# Entrypoint: runs migrate + seed + sync before handing off to CMD
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Default command (overridden in docker-compose for dev)
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "core.wsgi:application"]

@@ -2,6 +2,7 @@ services:
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
+    # entrypoint.sh runs: migrate → seed_options → sync_avatars → sync_voices → then $@
     volumes:
       - .:/app
       - db_data:/app/db
@@ -26,6 +27,7 @@ services:
 
   worker:
     build: .
+    entrypoint: []          # skip seed entrypoint for worker
     command: celery -A core worker -l info
     volumes:
       - .:/app
@@ -49,6 +51,7 @@ services:
 
   beat:
     build: .
+    entrypoint: []          # skip seed entrypoint for beat
     command: celery -A core beat -l info
     volumes:
       - .:/app
