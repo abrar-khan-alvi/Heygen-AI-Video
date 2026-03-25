@@ -35,6 +35,13 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
 
+# Trust reverse-proxy headers so request.build_absolute_uri() returns the
+# correct public URL (e.g. https://heygen.dsrt321.online/…) instead of
+# the internal http://localhost:8000/… address.
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # =============================================================================
 # APPLICATION DEFINITION
@@ -255,6 +262,11 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@example.com')
 # =============================================================================
 
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+
+# Public-facing base URL of this backend — used to build absolute media URLs
+# when the request Host header cannot be trusted (e.g. behind a reverse proxy
+# without X-Forwarded-Host). Set this to your production domain in .env.
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000').rstrip('/')
 
 
 # =============================================================================

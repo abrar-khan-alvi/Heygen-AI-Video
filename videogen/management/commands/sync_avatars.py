@@ -107,6 +107,27 @@ class Command(BaseCommand):
             key = f"{parsed['name'].lower()}_{gender}_{category}"
             score = _score_avatar(parsed)
 
+            # Try to pick a default voice if HeyGen didn't provide one
+            default_voice_id = avatar.get("default_voice_id", "")
+            if not default_voice_id:
+                from videogen.models import CachedVoice
+                # 1. Exact name match
+                match = CachedVoice.objects.filter(
+                    name__iexact=parsed["name"],
+                    gender=gender,
+                    is_active=True
+                ).first()
+                # 2. Fallback to first English voice
+                if not match:
+                    match = CachedVoice.objects.filter(
+                        language_code__istartswith="en",
+                        gender=gender,
+                        is_active=True
+                    ).first()
+                
+                if match:
+                    default_voice_id = match.voice_id
+
             current = best.get(key)
             if not current or score > current["_score"]:
                 best[key] = {
@@ -118,7 +139,7 @@ class Command(BaseCommand):
                     "angle": parsed.get("angle", ""),
                     "preview_image_url": avatar.get("preview_image_url", ""),
                     "preview_video_url": avatar.get("preview_video_url", ""),
-                    "default_voice_id": avatar.get("default_voice_id", "") or "",
+                    "default_voice_id": default_voice_id,
                     "_score": score,
                 }
 
