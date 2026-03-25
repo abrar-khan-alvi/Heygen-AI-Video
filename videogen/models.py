@@ -81,6 +81,14 @@ class CachedAvatar(models.Model):
     def __str__(self):
         return f"{self.avatar_name} ({self.gender}, {self.outfit_category})"
 
+    def save(self, *args, **kwargs):
+        # Auto-populate default_voice_id if blank
+        if not self.default_voice_id:
+            suggested = self.get_suggested_voice()
+            if suggested:
+                self.default_voice_id = suggested.voice_id
+        super().save(*args, **kwargs)
+
     def get_suggested_voice(self):
         """
         Returns a CachedVoice object based on:

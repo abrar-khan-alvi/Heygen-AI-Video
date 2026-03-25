@@ -1,5 +1,20 @@
 from rest_framework import serializers
+from django.conf import settings
 from .models import VideoProject, Industry, Background, CachedAvatar, CachedVoice
+
+
+def _build_media_url(relative_url, request=None):
+    """Build an absolute URL for a media file.
+
+    Priority:
+    1. Use request.build_absolute_uri() if available — honours
+       X-Forwarded-Host / X-Forwarded-Proto set by the reverse proxy.
+    2. Fallback to BACKEND_URL from settings (set in .env for production).
+    """
+    if request:
+        return request.build_absolute_uri(relative_url)
+    backend = getattr(settings, 'BACKEND_URL', 'http://localhost:8000').rstrip('/')
+    return f"{backend}{relative_url}"
 
 
 # ─── Option serializers ─────────────────────────────────────────────────────
@@ -96,9 +111,7 @@ class VideoProjectSerializer(serializers.ModelSerializer):
     def get_video_file_url(self, obj):
         if obj.video_file:
             request = self.context.get("request")
-            if request:
-                return request.build_absolute_uri(obj.video_file.url)
-            return obj.video_file.url
+            return _build_media_url(obj.video_file.url, request)
         return None
 
 
