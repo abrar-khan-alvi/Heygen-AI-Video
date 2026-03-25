@@ -24,15 +24,15 @@ echo ""
 echo "Seeding subscription plans..."
 python manage.py seed_plans
 
-# 4. Sync Cached Voices from HeyGen
-echo ""
-echo "Syncing voices from HeyGen API..."
-python manage.py sync_voices || echo "Voice sync failed - skipping"
-
-# 5. Sync Cached Avatars from HeyGen
+# 4. Sync Cached Avatars from HeyGen
 echo ""
 echo "Syncing avatars from HeyGen API..."
 python manage.py sync_avatars || echo "Avatar sync failed - skipping"
+
+# 5. Sync Cached Voices from HeyGen
+echo ""
+echo "Syncing voices from HeyGen API..."
+python manage.py sync_voices || echo "Voice sync failed - skipping"
 
 echo ""
 echo "===================================================="
