@@ -3,3 +3,29 @@ __pycache__
 .git
 .env
 *.pyc
+
+# Media files - large generated videos/images, served via volume mount
+media/
+
+# Database files - managed via volume
+db/
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Egg / dist
+*.egg-info/
+dist/
+build/
+
+# Docker
+docker-compose*.yml
+.dockerignore
