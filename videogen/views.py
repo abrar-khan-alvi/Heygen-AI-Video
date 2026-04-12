@@ -585,7 +585,7 @@ class VideoGenerateView(APIView):
             )
         except Exception as e:
             project.status = VideoProject.StatusChoice.VIDEO_FAILED
-            project.video_status_message = str(e)
+            project.video_status_message = str(e)[:1000]
             project.save()
             return Response(
                 {"detail": f"Video generation failed: {e}"},
@@ -672,7 +672,7 @@ class VideoStatusView(APIView):
             project.status = VideoProject.StatusChoice.VIDEO_FAILED
             project.video_status_message = result.get("message", "Video generation failed.")
 
-        project.video_status_message = result.get("message", "")
+        project.video_status_message = (result.get("message", "") or "")[:1000]
         project.save()
 
         return Response({
