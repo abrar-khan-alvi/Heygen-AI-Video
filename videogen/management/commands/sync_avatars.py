@@ -8,8 +8,9 @@ Usage:
 
 import requests
 from django.conf import settings
+from django.db import models
 from django.core.management.base import BaseCommand
-from videogen.models import CachedAvatar
+from videogen.models import CachedAvatar, CachedVoice
 
 
 OUTFIT_KEYWORDS = {
@@ -107,26 +108,32 @@ class Command(BaseCommand):
             key = f"{parsed['name'].lower()}_{gender}_{category}"
             score = _score_avatar(parsed)
 
-            # Try to pick a default voice if HeyGen didn't provide one
-            default_voice_id = avatar.get("default_voice_id", "")
-            if not default_voice_id:
-                from videogen.models import CachedVoice
-                # 1. Exact name match
+            # Priority Voice Matching (Ensuring Starfish compatibility)
+            # 1. Match by Avatar Name (First Priority)
+            match = CachedVoice.objects.filter(
+                name__iexact=parsed["name"],
+                gender=gender,
+                is_active=True
+            ).first()
+
+            # 2. Match by HeyGen's default_voice_id (if it exists in our compatible pool)
+            if not match:
+                heygen_default_id = avatar.get("default_voice_id", "")
+                if heygen_default_id:
+                    match = CachedVoice.objects.filter(
+                        voice_id=heygen_default_id,
+                        is_active=True
+                    ).first()
+
+            # 3. Fallback to any compatible English voice for that gender
+            if not match:
                 match = CachedVoice.objects.filter(
-                    name__iexact=parsed["name"],
+                    models.Q(language_code__istartswith="en") | models.Q(language__iexact="English"),
                     gender=gender,
                     is_active=True
                 ).first()
-                # 2. Fallback to first English voice
-                if not match:
-                    match = CachedVoice.objects.filter(
-                        language_code__istartswith="en",
-                        gender=gender,
-                        is_active=True
-                    ).first()
-                
-                if match:
-                    default_voice_id = match.voice_id
+
+            default_voice_id = match.voice_id if match else ""
 
             current = best.get(key)
             if not current or score > current["_score"]:

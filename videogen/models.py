@@ -8,7 +8,7 @@ from django.conf import settings
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class Industry(models.Model):
-    name = models.CharField(max_length=200, unique=True)
+    name = models.CharField(max_length=1000, unique=True)
     icon = models.CharField(max_length=100, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
     sort_order = models.PositiveIntegerField(default=0)
@@ -22,12 +22,12 @@ class Industry(models.Model):
 
 
 class Background(models.Model):
-    name = models.CharField(max_length=200, unique=True)
+    name = models.CharField(max_length=1000, unique=True)
     description = models.CharField(
-        max_length=500, blank=True,
+        max_length=1000, blank=True,
         help_text="Detailed description passed to Video Agent prompt",
     )
-    icon = models.CharField(max_length=100, blank=True)
+    icon = models.CharField(max_length=1000, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
     sort_order = models.PositiveIntegerField(default=0)
 
@@ -54,18 +54,18 @@ class CachedAvatar(models.Model):
         HEALTHCARE = "healthcare", "Healthcare"
         OUTDOOR = "outdoor", "Outdoor"
 
-    avatar_id = models.CharField(max_length=255, unique=True)
-    avatar_name = models.CharField(max_length=255)
-    gender = models.CharField(max_length=10, choices=GenderChoice.choices, db_index=True)
+    avatar_id = models.CharField(max_length=1000, unique=True)
+    avatar_name = models.CharField(max_length=1000)
+    gender = models.CharField(max_length=100, choices=GenderChoice.choices, db_index=True)
     outfit_category = models.CharField(
-        max_length=20, choices=OutfitCategory.choices, db_index=True,
+        max_length=100, choices=OutfitCategory.choices, db_index=True,
         help_text="Admin can change if auto-detection was wrong",
     )
-    pose = models.CharField(max_length=100, blank=True)
-    angle = models.CharField(max_length=100, blank=True)
-    preview_image_url = models.URLField(blank=True)
-    preview_video_url = models.URLField(blank=True)
-    default_voice_id = models.CharField(max_length=255, blank=True, default="")
+    pose = models.CharField(max_length=1000, blank=True)
+    angle = models.CharField(max_length=1000, blank=True)
+    preview_image_url = models.URLField(max_length=1000, blank=True)
+    preview_video_url = models.URLField(max_length=1000, blank=True)
+    default_voice_id = models.CharField(max_length=1000, blank=True, default="")
     is_active = models.BooleanField(default=True, db_index=True)
     synced_at = models.DateTimeField(auto_now=True)
 
@@ -125,12 +125,12 @@ class CachedAvatar(models.Model):
 
 class CachedVoice(models.Model):
     """Stores the HeyGen voice library fetched from /v2/voices."""
-    voice_id = models.CharField(max_length=255, unique=True)
-    name = models.CharField(max_length=255)
-    language = models.CharField(max_length=100, blank=True, default="")
-    language_code = models.CharField(max_length=20, blank=True, default="")
-    gender = models.CharField(max_length=10, blank=True, default="")
-    preview_audio_url = models.URLField(blank=True, default="")
+    voice_id = models.CharField(max_length=1000, unique=True)
+    name = models.CharField(max_length=1000)
+    language = models.CharField(max_length=1000, blank=True, default="")
+    language_code = models.CharField(max_length=100, blank=True, default="")
+    gender = models.CharField(max_length=100, blank=True, default="")
+    preview_audio_url = models.URLField(max_length=1000, blank=True, default="")
     is_active = models.BooleanField(default=True, db_index=True)
     synced_at = models.DateTimeField(auto_now=True)
 
@@ -163,32 +163,36 @@ class VideoProject(models.Model):
     )
 
     # Screen 1: Industry
-    industry = models.CharField(max_length=200, blank=True, default="")
+    industry = models.CharField(max_length=1000, blank=True, default="")
 
     # Screen 2: Title + Service Description
-    title = models.CharField(max_length=255, blank=True, default="")
+    title = models.CharField(max_length=1000, blank=True, default="")
     service_description = models.TextField(blank=True, default="")
 
     # Screen 3: Background
-    background = models.CharField(max_length=500, blank=True, default="")
+    background = models.CharField(max_length=1000, blank=True, default="")
 
     # Screen 4: Avatar (gender auto-detected from CachedAvatar)
-    avatar_id = models.CharField(max_length=255, blank=True, default="")
-    avatar_name = models.CharField(max_length=255, blank=True, default="")
-    avatar_gender = models.CharField(max_length=10, blank=True, default="")
-    avatar_outfit = models.CharField(max_length=200, blank=True, default="")
-    avatar_preview_url = models.URLField(blank=True, default="")
-    avatar_preview_video_url = models.URLField(blank=True, default="")
-    voice_id = models.CharField(max_length=255, blank=True, default="")
+    avatar_id = models.CharField(max_length=1000, blank=True, default="")
+    avatar_name = models.CharField(max_length=1000, blank=True, default="")
+    avatar_gender = models.CharField(max_length=100, blank=True, default="")
+    avatar_outfit = models.CharField(max_length=1000, blank=True, default="")
+    avatar_preview_url = models.URLField(max_length=1000, blank=True, default="")
+    avatar_preview_video_url = models.URLField(max_length=1000, blank=True, default="")
+    voice_id = models.CharField(max_length=1000, blank=True, default="")
 
     # Script
     generated_script = models.TextField(blank=True, default="")
     finalized_script = models.TextField(blank=True, default="")
 
     # Video
-    heygen_video_id = models.CharField(max_length=255, blank=True, db_index=True)
-    video_url = models.URLField(blank=True, default="")
+    heygen_video_id = models.CharField(max_length=1000, blank=True, db_index=True)
+    video_url = models.URLField(max_length=1000, blank=True, default="")
     video_file = models.FileField(upload_to="videos/%Y/%m/", blank=True, null=True)
+    is_watermarked = models.BooleanField(
+        default=False, 
+        help_text="Has the app logo been added to this video?"
+    )
     video_status_message = models.TextField(blank=True, default="")
 
     # Meta

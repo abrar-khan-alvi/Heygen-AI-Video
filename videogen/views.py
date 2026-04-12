@@ -19,7 +19,7 @@ from .serializers import (
     VideoProjectListSerializer,
 )
 from .permissions import IsProjectOwner
-from .services import heygen_service, gemini_service
+from .services import heygen_service, gemini_service, watermark_service
 from subscriptions.permissions import (
     HasActiveSubscription,
     CanGenerateScript,
@@ -596,9 +596,16 @@ class VideoGenerateView(APIView):
         project.status = VideoProject.StatusChoice.VIDEO_PROCESSING
         project.save()
 
-        # Trigger background monitoring
-        from .tasks import monitor_video_status_task
-        monitor_video_status_task.delay(str(project.id))
+        # Trigger background monitoring with a lock to prevent double-starts on first poll
+        from django.core.cache import cache
+        lock_key = f"video_task_lock_{project.id}"
+        if not cache.get(lock_key):
+            from .tasks import monitor_video_status_task
+            logger.info(f"Triggering initial monitoring task for project {project.id}")
+            cache.set(lock_key, True, timeout=600)  # Lock for 10 minutes
+            monitor_video_status_task.delay(str(project.id))
+        else:
+            logger.info(f"Monitoring task already active for project {project.id}")
 
         return Response({
             "project_id": str(project.id),
@@ -628,10 +635,16 @@ class VideoStatusView(APIView):
 
         # Fallback: if status is processing but we haven't checked for a while, 
         # or if user just landed here, make sure a task is running.
-        # (Though generating duplicate tasks is handled by the task check locally)
         if project.status == VideoProject.StatusChoice.VIDEO_PROCESSING:
-            from .tasks import monitor_video_status_task
-            monitor_video_status_task.delay(str(project.id))
+            from django.core.cache import cache
+            lock_key = f"video_task_lock_{project.id}"
+            if not cache.get(lock_key):
+                from .tasks import monitor_video_status_task
+                logger.info(f"Triggering monitoring task for project {project.id}")
+                cache.set(lock_key, True, timeout=600)  # Lock for 10 minutes
+                monitor_video_status_task.delay(str(project.id))
+            else:
+                logger.info(f"Task already running for project {project.id}. Skipping trigger.")
 
         try:
             result = heygen_service.get_video_status(project.heygen_video_id)
@@ -646,24 +659,18 @@ class VideoStatusView(APIView):
         if result["status"] == "completed":
             project.status = VideoProject.StatusChoice.VIDEO_COMPLETED
             project.video_url = result["video_url"] or ""
+            project.video_status_message = "Video completed. Processing final file..."
+            
+            # The actual download and branding is handled by monitor_video_status_task
+            # which we ensure is running. 
+            # We don't do it here anymore to keep the web response fast.
 
             if previous_status != VideoProject.StatusChoice.VIDEO_COMPLETED:
-                if result["video_url"]:
-                    try:
-                        filename = f"{project.id}.mp4"
-                        video_content = heygen_service.download_video(
-                            result["video_url"], filename
-                        )
-                        project.video_file.save(filename, video_content, save=False)
-                    except Exception as e:
-                        logger.error(f"Failed to save video file: {e}")
-                        project.video_status_message = (
-                            f"Video completed but file save failed: {e}"
-                        )
                 request.user.subscription.increment_video_count()
 
         elif result["status"] == "failed":
             project.status = VideoProject.StatusChoice.VIDEO_FAILED
+            project.video_status_message = result.get("message", "Video generation failed.")
 
         project.video_status_message = result.get("message", "")
         project.save()

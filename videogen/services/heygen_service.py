@@ -19,53 +19,42 @@ def _headers():
 def _build_video_agent_prompt(script, title, industry, service_description,
                                avatar_gender, avatar_outfit, background):
     outfit_desc = avatar_outfit or "professional"
-    outfit_instruction = f"- The spokesperson should appear in {outfit_desc} attire"
+    background_location = background or "modern, high-end professional office with cinematic lighting"
+    
+    # Narratively described scene and performance
+    scene_description = (
+        f"A cinematic vertical video featuring a highly dynamic and expressive {avatar_gender} professional. "
+        f"Location/Setting: The avatar is standing in a {background_location}. "
+        f"The environment must be photorealistic, detailed, and visually engaging—avoid plain or blank backgrounds. "
+        f"Behavior: The avatar must deliver the script with exceptionally high energy and frequent, natural hand gestures. "
+        f"They should move their body fluidly, leaning in toward the camera for emphasis, nodding periodically, "
+        f"and maintaining a constant sense of human-like presence through subtle shifts in posture and warm smiles. "
+        f"The goal is maximum realism and physical engagement—avoiding any static or robotic stillness."
+    )
 
-    background_instruction = ""
-    if background:
-        background_instruction = f"- CRITICAL VISUAL REQUIREMENT: When the avatar appears on screen, place them in front of a {background} background. This background should be consistent every time the avatar is shown. The background must ALWAYS be visible when the avatar is speaking. Do not use black, blank, transparent, or empty backgrounds."
+    prompt = f"""{scene_description}
 
-    prompt = f"""Create a 30-second professional marketing video.
+=== VIDEO CONTENT ===
+- Industry: {industry}
+- Title: {title}
+- Outfit: {outfit_desc} attire
+- Script (speak exactly): "{script}"
 
-=== VIDEO TITLE ===
-{title}
+=== PRODUCTION STYLE ===
+Create a high-quality 4k marketing video. Use cinematic lighting and depth-of-field.
+Include a dynamic motion graphics intro with the title "{title}".
+Interchange between the avatar speaking (A-roll) and relevant professional stock media/motion graphics (B-roll) that illustrates the {industry} service.
+Add bold social-media style captions and upbeat background music.
+End with a professional outro card.
 
-=== SPOKESPERSON ===
-- Gender: {avatar_gender}
-- Use a natural, professional {avatar_gender} voice that matches the avatar
-{outfit_instruction}{background_instruction}
+=== AVATAR PERFORMANCE ===
+The avatar should be the star of the show, exhibiting a 'high-motion' performance. 
+Ensure the hands are visible and actively gesturing in sync with the script's rhythm. 
+The body should shift and move naturally, creating a sense of three-dimensional space and high-end production realism.
 
-=== SCRIPT (spokesperson speaks these exact words) ===
-{script}
-
-=== VIDEO STYLE & PRODUCTION ===
-Use clean, modern, professional styled visuals. Leverage motion graphics as B-rolls and A-roll overlays. Use AI-generated videos and images when helpful. When real-world footage is needed, use Stock Media. Include an intro sequence and outro sequence using Motion Graphics.
-
-Specific visual directions:
-- Opening: Start with a dynamic motion graphics intro (animated text/logo reveal with the title "{title}") before the avatar appears
-- A-roll: Avatar speaking to camera with animated text overlays highlighting key points
-- B-roll: Use relevant stock footage and motion graphics between avatar scenes to illustrate the {industry} service
-- Motion graphics overlays: Display key benefits/features as animated text appearing while avatar speaks
-- Transitions: Use smooth, professional transitions between scenes (not hard cuts)
-- Lower thirds: Add subtle animated lower-third graphics
-- Closing: End with a motion graphics outro card with call-to-action text overlay
-
-=== FORMAT & PLATFORM ===
-- Duration: 30 seconds
-- Aspect ratio: 9:16 (vertical, optimized for TikTok, Instagram Reels, YouTube Shorts)
-- Add auto-generated captions/subtitles (large, bold, centered — social media style)
-- Pacing: Fast, punchy edits — keep viewer attention throughout
-- Music: Add subtle, upbeat background music that matches the energy
-
-=== COLOR & BRANDING ===
-- Use a professional color palette suitable for {industry}
-- Consistent typography and styling across all motion graphics
-- Clean, minimal aesthetic — not cluttered
-
-Make this video scroll-stopping, engaging, and ready to upload directly to social media."""
+The final video must be 30 seconds, 9:16 vertical, and feel like a premium, human-led advertisement."""
 
     return prompt
-
 
 def generate_video(avatar_id, voice_id, script, title, industry, service_description,
                    avatar_gender, avatar_outfit, background=""):
@@ -76,10 +65,9 @@ def generate_video(avatar_id, voice_id, script, title, industry, service_descrip
         service_description=service_description, avatar_gender=avatar_gender,
         avatar_outfit=avatar_outfit, background=background,
     )
-
     config_dict = {
         "avatar_id": avatar_id,
-        "duration_sec": 33,
+        "duration_sec": 30,
         "orientation": "portrait",
     }
 
@@ -125,40 +113,68 @@ def text_to_speech(voice_id, text, speed="1", language=None, locale=None):
     Returns the audio URL for playback.
     """
     url = f"{HEYGEN_BASE_URL}/v1/audio/text_to_speech"
+
+    if not text or not text.strip():
+        raise Exception("Cannot generate TTS: text is empty. Please generate a script for the project first.")
+
+    # HeyGen TTS Starfish v1 API: simplified payload first to verify fix
+    # Speed is an optional string field if used.
     payload = {
         "text": text,
         "voice_id": voice_id,
-        "input_type": "text",
-        "speed": speed,
     }
     if language:
         payload["language"] = language
-    if locale:
-        payload["locale"] = locale
+    
+    logger.info(f"HeyGen TTS payload — voice: {voice_id}, text_len: {len(text)}")
 
     try:
         resp = requests.post(url, headers=_headers(), json=payload, timeout=60)
+        if not resp.ok:
+            error_text = resp.text
+            if "STARFISH" in error_text:
+                friendly_error = (
+                    "This voice is not compatible with HeyGen's preview engine (Starfish). "
+                    "Please re-sync your voice library or select a different voice."
+                )
+                logger.error(f"HeyGen Starfish incompatibility: {error_text}")
+                raise Exception(friendly_error)
+                
+            logger.error(f"HeyGen TTS error {resp.status_code}: {error_text}")
+            raise Exception(f"HeyGen TTS error {resp.status_code}: {error_text}")
+            
         resp.raise_for_status()
         data = resp.json()
-        audio_url = data.get("data", {}).get("audio_url") or data.get("data", {}).get("url")
+        
+        # Starfish v1 response shape check
+        audio_url = data.get("data", {}).get("audio_url")
+        if not audio_url:
+            # Fallback checks
+            audio_url = data.get("data", {}).get("url") or data.get("url")
+            
         if not audio_url:
             raise Exception(f"No audio URL in TTS response: {data}")
+            
         logger.info(f"TTS generated for voice {voice_id}: {audio_url}")
         return {"audio_url": audio_url}
     except requests.RequestException as e:
-        logger.error(f"HeyGen TTS error: {e}")
+        error_body = ""
         if hasattr(e, "response") and e.response is not None:
-            logger.error(f"HeyGen TTS response: {e.response.text}")
-        raise Exception(f"Text-to-speech failed: {e}")
+            error_body = f" | Response: {e.response.text}"
+        logger.error(f"HeyGen TTS request error: {e}{error_body}")
+        raise Exception(f"Text-to-speech failed: {e}{error_body}")
 
 
 def fetch_voices():
-    """Fetch all available voices from HeyGen /v2/voices."""
-    url = f"{HEYGEN_BASE_URL}/v2/voices"
+    """Fetch all available voices from HeyGen /v1/audio/voices."""
+    url = f"{HEYGEN_BASE_URL}/v1/audio/voices"
     try:
         resp = requests.get(url, headers=_headers(), timeout=30)
         resp.raise_for_status()
-        voices = resp.json().get("data", {}).get("voices", [])
+        data = resp.json()
+        voices = data.get("data", [])
+        if not isinstance(voices, list):
+            voices = []
         logger.info(f"HeyGen voices fetched: {len(voices)} voices")
         return voices
     except requests.RequestException as e:
