@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('videogen', '0008_videoproject_voice_id'),
+        ('videogen', '0011_videoproject_is_watermarked'),
     ]
 
     operations = [

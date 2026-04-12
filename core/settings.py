@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'subscriptions',
     'videogen',
     'admin_api',
+    'productpromo',
 ]
 
 MIDDLEWARE = [

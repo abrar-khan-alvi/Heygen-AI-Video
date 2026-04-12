@@ -22,4 +22,5 @@ urlpatterns = [
     path("api/v1/subscriptions/", include("subscriptions.urls")),
     path("api/v1/videogen/", include("videogen.urls")),
     path("api/v1/admin/", include("admin_api.urls")),
+    path("api/v1/product-promo/", include("productpromo.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
