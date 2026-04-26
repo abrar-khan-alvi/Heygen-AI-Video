@@ -256,10 +256,18 @@ class VerifyOTPView(APIView):
                 {'error': 'Failed to create account. Username or email may already be taken.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        # Auto-assign free trial so user can generate videos immediately
+        # (without needing to visit GET /subscriptions/me/ first)
+        try:
+            from subscriptions.views import _auto_assign_trial
+            _auto_assign_trial(user)
+        except Exception:
+            pass  # Non-fatal — subscription can be assigned lazily on /me/
+
         # Delete pending registration
         pending.delete()
-        
+
         return Response({
             'message': 'Email verified successfully! You can now login.',
             'verified': True
@@ -721,7 +729,15 @@ class GoogleAuthView(APIView):
         
         # Generate tokens
         tokens = get_tokens_for_user(user)
-        
+
+        # Auto-assign free trial if this is a brand new Google user
+        if not hasattr(user, 'subscription') or user.subscription is None:
+            try:
+                from subscriptions.views import _auto_assign_trial
+                _auto_assign_trial(user)
+            except Exception:
+                pass
+
         return Response({
             'message': 'Google authentication successful',
             'tokens': tokens,
@@ -827,7 +843,15 @@ class AppleAuthView(APIView):
         
         # Generate tokens
         tokens = get_tokens_for_user(user)
-        
+
+        # Auto-assign free trial if this is a brand new Apple user
+        if not hasattr(user, 'subscription') or user.subscription is None:
+            try:
+                from subscriptions.views import _auto_assign_trial
+                _auto_assign_trial(user)
+            except Exception:
+                pass
+
         return Response({
             'message': 'Apple authentication successful',
             'tokens': tokens,

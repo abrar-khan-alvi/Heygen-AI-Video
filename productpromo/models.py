@@ -40,8 +40,11 @@ class ProductPromoProject(models.Model):
     avatar_name   = models.CharField(max_length=255, blank=True, default="")
     avatar_gender = models.CharField(max_length=20,  blank=True, default="")
     avatar_preview_url = models.URLField(max_length=1000, blank=True, default="")
-    
+
     voice_id      = models.CharField(max_length=255, blank=True, default="")
+
+    # Background scene description (resolved from Background table by name)
+    background    = models.CharField(max_length=1000, blank=True, default="")
 
     # ── Video Info ────────────────────────────────────────────────────────────
     heygen_video_id      = models.CharField(max_length=255, blank=True, db_index=True)
@@ -52,6 +55,7 @@ class ProductPromoProject(models.Model):
         null=True,
     )
     video_status_message = models.TextField(blank=True, default="")
+    is_watermarked       = models.BooleanField(default=False)
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
     status = models.CharField(

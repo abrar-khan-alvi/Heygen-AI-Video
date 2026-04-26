@@ -8,18 +8,19 @@ with videogen endpoints.
 Flow:
   POST   /projects/                          → 1. Create project
   POST   /projects/<uuid>/upload-image/      → 2. Upload product image
-  PATCH  /projects/<uuid>/                   → 3. Select avatar
+  PATCH  /projects/<uuid>/update/            → 3. Select avatar / background
   POST   /projects/<uuid>/generate-script/   → 4. AI generates script (Gemini multimodal)
   PUT    /projects/<uuid>/finalize-script/   → 5. Confirm / edit script
   POST   /projects/<uuid>/generate-video/    → 6. Trigger HeyGen
   GET    /projects/<uuid>/video-status/      → 7. Poll video status
-  GET    /projects/                          → 8. List projects
+  GET    /projects/list/                     → 8. List projects
   GET    /projects/<uuid>/                   → 9. Project detail
   DELETE /projects/<uuid>/                   → 10. Delete project
 
-Avatar browsing → use existing videogen endpoints:
+Avatar / voice browsing → use existing videogen endpoints:
   GET /api/v1/videogen/options/avatars/
   GET /api/v1/videogen/options/voices/
+  GET /api/v1/videogen/options/backgrounds/
 """
 
 import logging
@@ -39,8 +40,15 @@ from .serializers import (
 )
 from .permissions import IsPromoProjectOwner
 
-# CachedAvatar is imported from videogen — read-only reference, no duplication
+# CachedAvatar imported from videogen — read-only reference, no duplication
 from videogen.models import CachedAvatar
+
+# Subscription permission classes (shared with videogen)
+from subscriptions.permissions import (
+    HasActiveSubscription,
+    CanGenerateScript,
+    CanGenerateVideo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +84,7 @@ EDITABLE_STATUSES = [
 
 class PromoProjectCreateView(APIView):
     """Create a new product promo project (Step 1)."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def post(self, request):
         serializer = PromoProjectCreateSerializer(data=request.data)
@@ -163,15 +171,16 @@ class PromoImageUploadView(APIView):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 3. UPDATE PROJECT (avatar selection / product field edits)
-# PATCH /api/v1/product-promo/projects/<uuid>/
-# Body: { "avatar_id": "..." }   or   { "product_name": "..." }
+# 3. UPDATE PROJECT (avatar / background / product field edits)
+# PATCH /api/v1/product-promo/projects/<uuid>/update/
+# Body: { "avatar_id": "..." }  |  { "background": "Modern Office" }
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class PromoProjectUpdateView(APIView):
     """
-    PATCH — update avatar, voice, or product fields.
-    Avatar details are auto-populated from the CachedAvatar cache.
+    PATCH — update avatar, voice, background, or product fields.
+    Avatar details are auto-populated from CachedAvatar.
+    Background is resolved from the Background table to its description string.
     """
     permission_classes = [IsAuthenticated, IsPromoProjectOwner]
 
@@ -197,6 +206,17 @@ class PromoProjectUpdateView(APIView):
         if "product_description" in d:
             project.product_description = d["product_description"]
 
+        # Background — resolve description from Background table (same as videogen)
+        if "background" in d:
+            bg_name = d["background"]
+            try:
+                from videogen.models import Background
+                bg = Background.objects.get(name=bg_name, is_active=True)
+                project.background = bg.description or bg.name
+            except Exception:
+                # If name not found in DB, store the raw value as a custom description
+                project.background = bg_name
+
         # Avatar — auto-populate name, gender, preview from CachedAvatar
         if "avatar_id" in d:
             avatar_id = d["avatar_id"]
@@ -218,14 +238,14 @@ class PromoProjectUpdateView(APIView):
         if "voice_id" in d:
             project.voice_id = d["voice_id"]
 
-        # Changing avatar/product after script generation → reset script
+        # Changing anything after script generation → reset script (stale)
         if project.status in (
             ProductPromoProject.StatusChoice.SCRIPT_GENERATED,
             ProductPromoProject.StatusChoice.SCRIPT_FINALIZED,
         ):
             project.status           = ProductPromoProject.StatusChoice.DRAFT
             project.generated_script = ""
-            project.finalized_script  = ""
+            project.finalized_script = ""
 
         project.save()
         return Response(ProductPromoProjectSerializer(project, context=_ctx(request)).data)
@@ -234,21 +254,14 @@ class PromoProjectUpdateView(APIView):
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. GENERATE SCRIPT  (Gemini multimodal — product context)
 # POST /api/v1/product-promo/projects/<uuid>/generate-script/
-# No body required — uses saved project fields + product_image path
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class PromoScriptGenerateView(APIView):
     """
     Generate a product promotional script via Gemini.
-
-    - Uses product_name, product_description, avatar_gender from the project.
-    - If product_image is uploaded, sends it to Gemini as multimodal input
-      so Gemini can visually reference the product appearance.
-    - Context is 100% product-specific — no industry/background fields.
-
-    This is INDEPENDENT from videogen's ScriptGenerateView.
+    Gated by subscription limits (same as videogen ScriptGenerateView).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription, CanGenerateScript]
 
     def post(self, request, project_id):
         project = _get_project(project_id, user=request.user)
@@ -285,7 +298,7 @@ class PromoScriptGenerateView(APIView):
             try:
                 image_path = project.product_image.path
             except Exception:
-                image_path = None  # storage backend doesn't support .path → text-only fallback
+                image_path = None  # Storage backend doesn't support .path → text-only fallback
 
         from .services.gemini_service import generate_product_script
 
@@ -307,6 +320,9 @@ class PromoScriptGenerateView(APIView):
         project.status            = ProductPromoProject.StatusChoice.SCRIPT_GENERATED
         project.save()
 
+        # Count against subscription script quota
+        request.user.subscription.increment_script_count()
+
         return Response({
             "project_id":       str(project.id),
             "generated_script": script,
@@ -325,11 +341,8 @@ class PromoScriptFinalizeView(APIView):
     """
     Confirm (and optionally edit) the generated script.
     After this step the project is ready for video generation.
-
-    This is INDEPENDENT from videogen's ScriptFinalizeView.
-    Different model, different context, different URL prefix.
     """
-    permission_classes = [IsAuthenticated, IsPromoProjectOwner]
+    permission_classes = [IsAuthenticated, HasActiveSubscription, IsPromoProjectOwner]
 
     def put(self, request, project_id):
         project = _get_project(project_id)
@@ -367,10 +380,9 @@ class PromoScriptFinalizeView(APIView):
 class PromoVideoGenerateView(APIView):
     """
     Submit the video generation job to HeyGen.
-    Uses a product-specific prompt builder (not the service/marketing prompt
-    from videogen).
+    Gated by HasActiveSubscription + CanGenerateVideo — same guards as videogen.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription, CanGenerateVideo]
 
     def post(self, request, project_id):
         project = _get_project(project_id, user=request.user)
@@ -421,6 +433,7 @@ class PromoVideoGenerateView(APIView):
                 product_name=project.product_name,
                 product_description=project.product_description,
                 avatar_gender=project.avatar_gender or "professional",
+                background=project.background,           # ← new: chosen background
                 product_image_path=product_image_path,
             )
         except Exception as e:
@@ -493,15 +506,29 @@ class PromoVideoStatusView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        previous_status = project.status
+
         if result["status"] == "completed":
             project.status    = ProductPromoProject.StatusChoice.VIDEO_COMPLETED
             project.video_url = result.get("video_url") or ""
-            
-            # Use same messaging as videogen to manage expectations for local file download
+
             if not project.video_file:
                 project.video_status_message = "Video completed. Processing final file..."
             else:
                 project.video_status_message = "Video fully processed."
+
+            # Increment subscription video counter on first completion
+            # (same pattern as videogen VideoStatusView)
+            if previous_status != ProductPromoProject.StatusChoice.VIDEO_COMPLETED:
+                try:
+                    request.user.subscription.increment_video_count()
+                    logger.info(
+                        f"Subscription video count incremented for user {request.user.id} "
+                        f"(promo project {project.id})"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to increment video count: {e}")
+
         elif result["status"] == "failed":
             project.status = ProductPromoProject.StatusChoice.VIDEO_FAILED
             project.video_status_message = result.get("message", "Video generation failed.")
@@ -524,7 +551,7 @@ class PromoVideoStatusView(APIView):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 8 & 9. LIST + DETAIL
-# GET /api/v1/product-promo/projects/
+# GET /api/v1/product-promo/projects/list/
 # GET /api/v1/product-promo/projects/<uuid>/
 # ═══════════════════════════════════════════════════════════════════════════════
 

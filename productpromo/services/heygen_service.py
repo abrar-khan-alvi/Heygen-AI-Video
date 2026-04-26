@@ -43,12 +43,12 @@ def upload_asset_to_heygen(file_path: str) -> str:
         resp = requests.post(url, headers=_headers(mime_type), data=data, timeout=60)
         resp.raise_for_status()
         res_json = resp.json()
-        data = res_json.get("data", {})
-        asset_id = data.get("asset_id") or data.get("id")
-        
+        res_data = res_json.get("data", {})
+        asset_id = res_data.get("asset_id") or res_data.get("id")
+
         if not asset_id:
             raise Exception(f"No asset_id or id in upload response: {res_json}")
-        
+
         logger.info(f"Asset uploaded successfully. ID: {asset_id}")
         return asset_id
     except Exception as e:
@@ -56,58 +56,93 @@ def upload_asset_to_heygen(file_path: str) -> str:
         raise Exception(f"Failed to upload product image to HeyGen: {e}")
 
 
-def _build_product_video_prompt(script: str, product_name: str,
-                                 product_description: str, avatar_gender: str,
-                                 has_asset: bool = False) -> str:
+def _build_product_video_prompt(
+    script: str,
+    product_name: str,
+    product_description: str,
+    avatar_gender: str,
+    background: str = "",
+    has_asset: bool = False,
+) -> str:
     """
     Constructs the HeyGen Video Agent prompt for a PRODUCT advertisement.
-    Balanced for high avatar visibility and mandatory product asset usage.
+
+    Combines:
+    - A chosen background / scene setting (or premium showroom fallback).
+    - Explicit high-motion avatar performance instructions (natural hand gestures,
+      body movement, leaning in, warm expression) — mirroring the videogen prompt.
+    - Mandatory product asset (B-roll) usage when an asset is provided.
     """
     gender_desc = avatar_gender or "professional"
+    background_location = background or (
+        "modern high-end product showroom with soft studio lighting "
+        "and subtle bokeh depth-of-field"
+    )
 
-    asset_instruction = ""
+    # ── Product asset instruction ──────────────────────────────────────────────
+    asset_section = ""
     if has_asset:
-        asset_instruction = (
-            "CRITICAL VISUAL REQUIREMENT: You MUST use 'Asset 1' for every single product-related visual. "
-            "Asset 1 is the EXACT physical product (a high-tech E-bike). DO NOT use generic stock footage of regular bicycles or seats. "
-            "When the script mentions features, show 'Asset 1' in high-resolution close-ups. Keep the visual context strictly to 'Asset 1'."
+        asset_section = (
+            "\n\n=== CRITICAL: PRODUCT ASSET ===\n"
+            "You MUST use 'Asset 1' for every single product-related visual. "
+            "Asset 1 is the EXACT physical product — DO NOT use generic stock footage. "
+            "Show 'Asset 1' in high-resolution close-ups whenever features are mentioned. "
+            "Keep all product visuals strictly to 'Asset 1'."
         )
 
-    return f"""Create a photorealistic vertical promotional video for the product '{product_name}'.
+    # ── Background is the FIRST directive so HeyGen cannot ignore it ───────────
+    prompt = f"""=== CRITICAL: BACKGROUND ENVIRONMENT (MANDATORY) ===
+The avatar MUST appear inside a fully rendered, photorealistic real-world environment.
+Background: {background_location}
+NEVER use a black, blank, plain, dark, transparent, or empty background — this is a strict failure condition.
+The environment must fill the entire frame with rich detail, cinematic depth-of-field,
+professional lighting, and realistic textures. Render it as a premium advertisement set.
+{asset_section}
 
-{asset_instruction}
+=== CRITICAL: EYE CONTACT (MANDATORY) ===
+The spokesperson MUST maintain direct, sustained eye contact with the camera lens at ALL times.
+ALWAYS look straight into the camera — never look away, to the side, downward, or off-screen.
+The avatar's gaze is locked to the viewer throughout the ENTIRE video, including while gesturing.
+Looking away from the camera even briefly is a strict failure condition.
+This is a direct-address advertisement: the spokesperson is always speaking TO the viewer.
 
-=== SPOKESPERSON (A-ROLL) ===
-- Lead Actor: A {gender_desc} spokesperson (delivered via the configured Avatar ID).
-- Performance: High energy, enthusiastic, and directly presenting the product to the camera.
-- Visibility: The spokesperson should be the primary focus of the video. 
+=== AVATAR PERFORMANCE ===
+Spokesperson: A highly dynamic and expressive {gender_desc} professional.
+The avatar MUST deliver the script with exceptionally high energy and frequent, natural hand gestures.
+Body movement: fluid weight shifts, leaning toward the camera for emphasis, periodic nodding.
+Facial expression: warm smiles, genuine enthusiasm, unwavering direct eye contact with the camera lens.
+Hands must be visible and actively gesturing in sync with the script's rhythm.
+The goal is maximum realism and physical engagement — no static or robotic stillness.
 
-=== PRODUCT VISUALS (B-ROLL) ===
-- Asset: Use 'Asset 1' for ALL product-specific scenes. 
-- Presentation: Show 'Asset 1' as a side-overlay while the spokesperson talks, AND as a full-screen feature close-up during key descriptive moments.
+=== PRODUCT ADVERTISEMENT ===
+- Product: {product_name}
+- Description: {product_description}
+- Script (speak exactly): "{script}"
 
-=== SCRIPT ===
-The spokesperson speaks this EXACT script:
-"{script}"
+=== PRODUCTION STYLE ===
+Create a high-quality 4K vertical (9:16) marketing video with cinematic lighting.
+Warm accent lights that make both the spokesperson and the product pop.
+Include a dynamic motion-graphics intro displaying the product name '{product_name}'.
+Alternate between spokesperson A-roll (always looking directly into the camera) and product hero shots (B-roll).
+Add bold social-media-style captions and upbeat background music.
+End with a professional outro card featuring the product name.
 
-=== VIDEO STRUCTURE ===
-1. START: Spokesperson on screen immediately, welcoming the viewer. Display the product name '{product_name}' as a modern text overlay.
-2. FEATURE SHOWCASE: As the spokesperson describes features, transition between full-screen spokesperson and full-screen hero shots of 'Asset 1'. 
-3. CALL TO ACTION: End with the spokesperson and a final professional graphic showing the product name.
+FINAL REMINDER: The spokesperson MUST look directly into the camera lens at all times — never away.
+The final video must be 30 seconds, 9:16 vertical, and feel like a premium human-led advertisement."""
 
-=== STYLE ===
-- Layout: Vertical 9:16.
-- Background: A high-end, photorealistic modern showroom or a bright urban lifestyle setting. DO NOT use a black or blank background. The environment must be professional and look like a premium advertisement.
-- Lighting: Professional studio lighting with warm accents that make the product (Asset 1) and the spokesperson pop.
-- Captions: Bold, legible dynamic social-media style captions.
-- Music: Upbeat, trendy background music.
-"""
+    return prompt
 
 
-def generate_product_video(avatar_id: str, voice_id: str, script: str,
-                            product_name: str, product_description: str,
-                            avatar_gender: str = "professional",
-                            product_image_path: str = None) -> dict:
+def generate_product_video(
+    avatar_id: str,
+    voice_id: str,
+    script: str,
+    product_name: str,
+    product_description: str,
+    avatar_gender: str = "professional",
+    background: str = "",
+    product_image_path: str = None,
+) -> dict:
     """
     Submit a product promotional video job to HeyGen Video Agent.
     """
@@ -119,13 +154,14 @@ def generate_product_video(avatar_id: str, voice_id: str, script: str,
         except Exception as e:
             logger.warning(f"Failed to upload asset, proceeding without it: {e}")
 
-    # 2. Build prompt
+    # 2. Build prompt (now includes background + high-motion instructions)
     url    = f"{HEYGEN_BASE_URL}/v1/video_agent/generate"
     prompt = _build_product_video_prompt(
         script=script,
         product_name=product_name,
         product_description=product_description,
         avatar_gender=avatar_gender,
+        background=background,
         has_asset=bool(asset_id),
     )
 
@@ -136,16 +172,18 @@ def generate_product_video(avatar_id: str, voice_id: str, script: str,
     }
     if voice_id:
         config["voice_id"] = voice_id
-    
+
     payload = {"prompt": prompt, "config": config}
-    
-    # Pass the asset to Video Agent if available (at the root level per documentation)
+
+    # Pass the asset to Video Agent if available (root level per HeyGen docs)
     if asset_id:
         payload["files"] = [{"asset_id": asset_id}]
 
     logger.info(
-        f"HeyGen Product Video — avatar: {avatar_id}, product: {product_name}"
+        f"HeyGen Product Video — avatar: {avatar_id}, product: {product_name}, "
+        f"background: '{background or 'default showroom'}'"
     )
+    logger.info(f"HeyGen Product Video Prompt:\n{prompt}")
 
     try:
         resp = requests.post(url, headers=_headers(), json=payload, timeout=60)

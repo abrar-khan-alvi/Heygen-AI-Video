@@ -12,6 +12,7 @@ from core.throttles import AdminActionThrottle
 CustomUser = get_user_model()
 from subscriptions.models import UserSubscription, SubscriptionPlan
 from videogen.models import VideoProject
+from productpromo.models import ProductPromoProject
 from .serializers import AdminUserSerializer, AdminVideoProjectSerializer
 
 # =============================================================================
@@ -60,14 +61,26 @@ class DashboardStatsView(APIView):
         ).aggregate(total_mrr=Sum('plan__price_monthly'))
         approx_mrr = mrr_data['total_mrr'] or 0
 
-        # 3. Video Stats
-        total_videos = VideoProject.objects.count()
-        completed_videos = VideoProject.objects.filter(status=VideoProject.StatusChoice.VIDEO_COMPLETED).count()
-        failed_videos = VideoProject.objects.filter(status=VideoProject.StatusChoice.VIDEO_FAILED).count()
-        videos_last_30d = VideoProject.objects.filter(
-            status=VideoProject.StatusChoice.VIDEO_COMPLETED,
-            updated_at__gte=thirty_days_ago
-        ).count()
+        # 3. Video Stats (videogen + productpromo combined)
+        total_videos     = VideoProject.objects.count() + ProductPromoProject.objects.count()
+        completed_videos = (
+            VideoProject.objects.filter(status=VideoProject.StatusChoice.VIDEO_COMPLETED).count()
+            + ProductPromoProject.objects.filter(status=ProductPromoProject.StatusChoice.VIDEO_COMPLETED).count()
+        )
+        failed_videos = (
+            VideoProject.objects.filter(status=VideoProject.StatusChoice.VIDEO_FAILED).count()
+            + ProductPromoProject.objects.filter(status=ProductPromoProject.StatusChoice.VIDEO_FAILED).count()
+        )
+        videos_last_30d = (
+            VideoProject.objects.filter(
+                status=VideoProject.StatusChoice.VIDEO_COMPLETED,
+                updated_at__gte=thirty_days_ago
+            ).count()
+            + ProductPromoProject.objects.filter(
+                status=ProductPromoProject.StatusChoice.VIDEO_COMPLETED,
+                updated_at__gte=thirty_days_ago
+            ).count()
+        )
 
         # 4. Chart Data: Signups by Day (last 30 days)
         signups_by_day = list(
