@@ -180,18 +180,25 @@ class VideoProject(models.Model):
     avatar_preview_url = models.URLField(max_length=1000, blank=True, default="")
     avatar_preview_video_url = models.URLField(max_length=1000, blank=True, default="")
     voice_id = models.CharField(max_length=1000, blank=True, default="")
+    style_id = models.CharField(max_length=255, blank=True, default="f9b6c9115a6f4be99abec4ae0b09657b") # Default: Planet Earth
 
     # Script
     generated_script = models.TextField(blank=True, default="")
     finalized_script = models.TextField(blank=True, default="")
 
     # Video
-    heygen_video_id = models.CharField(max_length=1000, blank=True, db_index=True)
-    video_url = models.URLField(max_length=1000, blank=True, default="")
+    # ── Video Info ────────────────────────────────────────────────────────────
+    heygen_session_id    = models.CharField(max_length=255, blank=True, default="")
+    heygen_video_id      = models.CharField(max_length=255, blank=True, db_index=True)
+    video_url            = models.URLField(max_length=1000, blank=True, default="")
     video_file = models.FileField(upload_to="videos/%Y/%m/", blank=True, null=True)
     is_watermarked = models.BooleanField(
         default=False, 
         help_text="Has the app logo been added to this video?"
+    )
+    is_counted = models.BooleanField(
+        default=False,
+        help_text="True once the subscription video counter has been incremented for this project."
     )
     video_status_message = models.TextField(blank=True, default="")
 

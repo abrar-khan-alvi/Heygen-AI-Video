@@ -86,6 +86,7 @@ class ProjectPatchSerializer(serializers.Serializer):
 
     # Also allow re-updating industry (if user goes back)
     industry = serializers.CharField(max_length=200, required=False)
+    style_id = serializers.CharField(max_length=255, required=False)
 
 
 class ScriptFinalizeSerializer(serializers.Serializer):
@@ -100,9 +101,9 @@ class VideoProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "industry", "service_description", "background",
             "avatar_id", "avatar_name", "avatar_gender", "avatar_outfit",
-            "avatar_preview_url", "avatar_preview_video_url", "voice_id",
+            "avatar_preview_url", "avatar_preview_video_url", "voice_id", "style_id",
             "generated_script", "finalized_script",
-            "heygen_video_id", "video_url", "video_file_url",
+            "heygen_session_id", "heygen_video_id", "video_url", "video_file_url",
             "video_status_message",
             "status", "created_at", "updated_at",
         ]

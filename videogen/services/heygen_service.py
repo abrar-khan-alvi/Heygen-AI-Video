@@ -56,8 +56,8 @@ The final video must be 30 seconds, 9:16 vertical, and feel like a premium, huma
 
     return prompt
 
-def generate_video(avatar_id, voice_id, script, title, industry, service_description,
-                   avatar_gender, avatar_outfit, background=""):
+def generate_video_standard(avatar_id, voice_id, script, title, industry, service_description,
+                   avatar_gender, avatar_outfit, background="", style_id=None):
     url = f"{HEYGEN_BASE_URL}/v1/video_agent/generate"
 
     prompt = _build_video_agent_prompt(
@@ -182,7 +182,7 @@ def fetch_voices():
         raise Exception(f"Failed to fetch voices: {e}")
 
 
-def get_video_status(video_id):
+def get_video_status_standard(video_id):
     url = f"{HEYGEN_BASE_URL}/v1/video_status.get"
     try:
         resp = requests.get(url, headers=_headers(), params={"video_id": video_id}, timeout=30)
@@ -197,3 +197,22 @@ def get_video_status(video_id):
     except requests.RequestException as e:
         logger.error(f"HeyGen status error: {e}")
         raise Exception(f"Failed to get video status: {e}")
+
+
+# Alias for backward compatibility with views and legacy tasks
+get_video_status = get_video_status_standard
+
+
+def get_session_status(session_id):
+    """
+    Status check for HeyGen v1 Interactive API sessions.
+    Used as a fallback for projects initiated before v2 Video Agent.
+    """
+    url = f"{HEYGEN_BASE_URL}/v1/session.get"
+    try:
+        resp = requests.get(url, headers=_headers(), params={"session_id": session_id}, timeout=30)
+        resp.raise_for_status()
+        return resp.json().get("data", {})
+    except requests.RequestException as e:
+        logger.error(f"HeyGen session status error: {e}")
+        raise Exception(f"Failed to get session status: {e}")

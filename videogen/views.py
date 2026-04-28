@@ -572,16 +572,17 @@ class VideoGenerateView(APIView):
         outfit = project.avatar_outfit or "professional"
 
         try:
-            result = heygen_service.generate_video(
+            result = heygen_service.generate_video_standard(
                 avatar_id=project.avatar_id,
                 voice_id=project.voice_id,
                 script=project.finalized_script,
                 title=project.title,
                 industry=project.industry,
                 service_description=project.service_description,
-                avatar_gender=project.avatar_gender or "male",
+                avatar_gender=project.avatar_gender,
                 avatar_outfit=outfit,
                 background=project.background,
+                style_id=project.style_id,
             )
         except Exception as e:
             project.status = VideoProject.StatusChoice.VIDEO_FAILED
@@ -592,17 +593,20 @@ class VideoGenerateView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # v2 API returns video_id directly — no session resolution step needed
         project.heygen_video_id = result["video_id"]
+        project.heygen_session_id = ""   # empty = v2 mode (task skips session step)
         project.status = VideoProject.StatusChoice.VIDEO_PROCESSING
+        project.video_status_message = "Video queued with HeyGen (Standard API)."
         project.save()
 
-        # Trigger background monitoring with a lock to prevent double-starts on first poll
+        # Trigger background monitoring
         from django.core.cache import cache
         lock_key = f"video_task_lock_{project.id}"
         if not cache.get(lock_key):
             from .tasks import monitor_video_status_task
             logger.info(f"Triggering initial monitoring task for project {project.id}")
-            cache.set(lock_key, True, timeout=600)  # Lock for 10 minutes
+            cache.set(lock_key, True, timeout=600)
             monitor_video_status_task.delay(str(project.id))
         else:
             logger.info(f"Monitoring task already active for project {project.id}")
@@ -611,7 +615,7 @@ class VideoGenerateView(APIView):
             "project_id": str(project.id),
             "heygen_video_id": result["video_id"],
             "status": "processing",
-            "message": "Video generation started. Poll /video-status/ for updates.",
+            "message": "Video queued. Poll /video-status/ for updates.",
         })
 
 
@@ -627,7 +631,7 @@ class VideoStatusView(APIView):
         if not project:
             return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not project.heygen_video_id:
+        if not project.heygen_video_id and not project.heygen_session_id:
             return Response(
                 {"detail": "No video generation initiated."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -647,6 +651,20 @@ class VideoStatusView(APIView):
                 logger.info(f"Task already running for project {project.id}. Skipping trigger.")
 
         try:
+            # If we don't have a video_id yet, try to resolve it from the session
+            if not project.heygen_video_id:
+                session_result = heygen_service.get_session_status(project.heygen_session_id)
+                video_id = session_result.get("video_id")
+                if video_id:
+                    project.heygen_video_id = video_id
+                    project.save(update_fields=["heygen_video_id"])
+                else:
+                    return Response({
+                        "project_id": str(project.id),
+                        "status": "processing",
+                        "video_status_message": "HeyGen is preparing your video session...",
+                    })
+
             result = heygen_service.get_video_status(project.heygen_video_id)
         except Exception as e:
             return Response(
@@ -659,20 +677,16 @@ class VideoStatusView(APIView):
         if result["status"] == "completed":
             project.status = VideoProject.StatusChoice.VIDEO_COMPLETED
             project.video_url = result["video_url"] or ""
-            project.video_status_message = "Video completed. Processing final file..."
-            
-            # The actual download and branding is handled by monitor_video_status_task
-            # which we ensure is running. 
-            # We don't do it here anymore to keep the web response fast.
+            project.video_status_message = "Video completed. Finalizing file..."
 
-            if previous_status != VideoProject.StatusChoice.VIDEO_COMPLETED:
-                request.user.subscription.increment_video_count()
+            # NOTE: subscription counter is incremented exclusively by the
+            # background task (monitor_video_status_task) using an atomic DB guard.
+            # Do NOT increment here to avoid race conditions.
 
         elif result["status"] == "failed":
             project.status = VideoProject.StatusChoice.VIDEO_FAILED
             project.video_status_message = result.get("message", "Video generation failed.")
 
-        project.video_status_message = (result.get("message", "") or "")[:1000]
         project.save()
 
         return Response({

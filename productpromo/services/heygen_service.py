@@ -5,6 +5,8 @@ from django.conf import settings
 # ── Shared HTTP utilities (no business logic, safe to import) ─────────────────
 from videogen.services.heygen_service import (
     get_video_status,   # noqa: F401  re-exported for convenience
+    get_video_status_standard, # noqa: F401
+    get_session_status, # noqa: F401
     download_video,     # noqa: F401
     text_to_speech,     # noqa: F401
 )
@@ -133,7 +135,7 @@ The final video must be 30 seconds, 9:16 vertical, and feel like a premium human
     return prompt
 
 
-def generate_product_video(
+def generate_video_standard(
     avatar_id: str,
     voice_id: str,
     script: str,
@@ -141,6 +143,7 @@ def generate_product_video(
     product_description: str,
     avatar_gender: str = "professional",
     background: str = "",
+    style_id: str = None,
     product_image_path: str = None,
 ) -> dict:
     """

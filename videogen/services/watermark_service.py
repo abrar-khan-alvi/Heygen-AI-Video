@@ -50,11 +50,12 @@ def apply_watermark(input_video_content, output_filename):
         return ContentFile(watermarked_content, name=output_filename)
         
     except subprocess.CalledProcessError as e:
-        logger.error(f"FFmpeg error: {e.stderr}")
-        # Fallback to original content on failure
-        return ContentFile(input_video_content, name=output_filename)
+        logger.error(f"FFmpeg watermark error for {output_filename}: {e.stderr}")
+        # RAISE — do NOT silently return original video.
+        # The Celery task will retry, ensuring trial videos always get branded.
+        raise Exception(f"FFmpeg watermarking failed: {e.stderr[:500]}")
     finally:
-        # Cleanup
+        # Cleanup temp files
         if os.path.exists(temp_input_path):
             os.remove(temp_input_path)
         if os.path.exists(temp_output_path):

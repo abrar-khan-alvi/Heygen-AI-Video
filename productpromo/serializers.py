@@ -34,6 +34,7 @@ class PromoProjectUpdateSerializer(serializers.Serializer):
     voice_id            = serializers.CharField(max_length=255, required=False)
     # Background name (e.g. "Modern Office") — resolved to description in the view
     background          = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+    style_id            = serializers.CharField(max_length=255, required=False)
 
 
 class PromoScriptFinalizeSerializer(serializers.Serializer):

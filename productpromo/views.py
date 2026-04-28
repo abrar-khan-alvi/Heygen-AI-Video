@@ -415,26 +415,27 @@ class PromoVideoGenerateView(APIView):
         if not project.avatar_id:
             return Response({"detail": "No avatar selected."}, status=status.HTTP_400_BAD_REQUEST)
 
-        from .services.heygen_service import generate_product_video
-
-        # Pass physical file path for asset upload if image exists
-        product_image_path = None
+        # Resolve absolute path to product image (if uploaded)
+        image_path = None
         if project.product_image:
             try:
-                product_image_path = project.product_image.path
+                image_path = project.product_image.path
             except Exception:
-                product_image_path = None
+                image_path = None
+
+        from .services.heygen_service import generate_video_standard
 
         try:
-            result = generate_product_video(
+            result = generate_video_standard(
                 avatar_id=project.avatar_id,
                 voice_id=project.voice_id,
                 script=project.finalized_script,
                 product_name=project.product_name,
                 product_description=project.product_description,
                 avatar_gender=project.avatar_gender or "professional",
-                background=project.background,           # ← new: chosen background
-                product_image_path=product_image_path,
+                background=project.background,
+                style_id=project.style_id,
+                product_image_path=image_path,
             )
         except Exception as e:
             project.status               = ProductPromoProject.StatusChoice.VIDEO_FAILED
@@ -445,9 +446,11 @@ class PromoVideoGenerateView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        project.heygen_video_id = result["video_id"]
-        project.status          = ProductPromoProject.StatusChoice.VIDEO_PROCESSING
-        project.video_status_message = "Video queued with HeyGen."
+        # v2 API returns video_id directly — no session resolution step needed
+        project.heygen_video_id      = result["video_id"]
+        project.heygen_session_id    = ""   # empty = v2 mode (task skips session step)
+        project.status               = ProductPromoProject.StatusChoice.VIDEO_PROCESSING
+        project.video_status_message = "Video queued with HeyGen (Standard API)."
         project.save()
 
         # Kick off background monitoring
@@ -481,7 +484,7 @@ class PromoVideoStatusView(APIView):
         if not project:
             return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not project.heygen_video_id:
+        if not project.heygen_video_id and not project.heygen_session_id:
             return Response(
                 {"detail": "No video has been generated yet."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -496,9 +499,23 @@ class PromoVideoStatusView(APIView):
                 cache.set(lock_key, True, timeout=600)
                 monitor_promo_video_task.delay(str(project.id))
 
-        from .services.heygen_service import get_video_status
+        from .services.heygen_service import get_video_status, get_session_status
 
         try:
+            # If we don't have a video_id yet, try to resolve it from the session
+            if not project.heygen_video_id:
+                session_result = get_session_status(project.heygen_session_id)
+                video_id = session_result.get("video_id")
+                if video_id:
+                    project.heygen_video_id = video_id
+                    project.save(update_fields=["heygen_video_id"])
+                else:
+                    return Response({
+                        "project_id": str(project.id),
+                        "status": "processing",
+                        "video_status_message": "HeyGen is preparing your video session...",
+                    })
+
             result = get_video_status(project.heygen_video_id)
         except Exception as e:
             return Response(
@@ -513,21 +530,13 @@ class PromoVideoStatusView(APIView):
             project.video_url = result.get("video_url") or ""
 
             if not project.video_file:
-                project.video_status_message = "Video completed. Processing final file..."
+                project.video_status_message = "Video completed. Finalizing file..."
             else:
                 project.video_status_message = "Video fully processed."
 
-            # Increment subscription video counter on first completion
-            # (same pattern as videogen VideoStatusView)
-            if previous_status != ProductPromoProject.StatusChoice.VIDEO_COMPLETED:
-                try:
-                    request.user.subscription.increment_video_count()
-                    logger.info(
-                        f"Subscription video count incremented for user {request.user.id} "
-                        f"(promo project {project.id})"
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to increment video count: {e}")
+            # NOTE: subscription counter is incremented exclusively by the
+            # background task (monitor_promo_video_task) using an atomic DB guard.
+            # Do NOT increment here to avoid race conditions.
 
         elif result["status"] == "failed":
             project.status = ProductPromoProject.StatusChoice.VIDEO_FAILED

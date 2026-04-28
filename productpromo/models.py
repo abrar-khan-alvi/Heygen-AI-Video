@@ -42,11 +42,13 @@ class ProductPromoProject(models.Model):
     avatar_preview_url = models.URLField(max_length=1000, blank=True, default="")
 
     voice_id      = models.CharField(max_length=255, blank=True, default="")
+    style_id      = models.CharField(max_length=255, blank=True, default="f9b6c9115a6f4be99abec4ae0b09657b") # Default: Planet Earth
 
     # Background scene description (resolved from Background table by name)
     background    = models.CharField(max_length=1000, blank=True, default="")
 
     # ── Video Info ────────────────────────────────────────────────────────────
+    heygen_session_id    = models.CharField(max_length=255, blank=True, default="")
     heygen_video_id      = models.CharField(max_length=255, blank=True, db_index=True)
     video_url            = models.URLField(max_length=1000, blank=True, default="")
     video_file           = models.FileField(
@@ -56,6 +58,7 @@ class ProductPromoProject(models.Model):
     )
     video_status_message = models.TextField(blank=True, default="")
     is_watermarked       = models.BooleanField(default=False)
+    is_counted           = models.BooleanField(default=False)  # True once subscription counter is incremented
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
     status = models.CharField(
