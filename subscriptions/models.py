@@ -16,6 +16,7 @@ class SubscriptionPlan(models.Model):
 
     # Limits
     max_videos_per_month = models.PositiveIntegerField(default=5)
+    max_regenerations_per_month = models.PositiveIntegerField(default=0)
     max_script_generations_per_month = models.PositiveIntegerField(default=10)
     has_priority_processing = models.BooleanField(default=False)
     has_watermark = models.BooleanField(default=False)
@@ -76,13 +77,15 @@ class UserSubscription(models.Model):
     purchase_token = models.TextField(blank=True)
     product_id = models.CharField(max_length=255, blank=True)
 
-    # Usage tracking
+    # Usage tracking (paid plans — resets monthly)
     videos_generated_this_month = models.PositiveIntegerField(default=0)
     scripts_generated_this_month = models.PositiveIntegerField(default=0)
+    regenerations_used_this_month = models.PositiveIntegerField(default=0)
     usage_reset_date = models.DateField(default=timezone.now)
 
-    # Free trial lifetime counter
+    # Free trial lifetime counters (never reset)
     trial_videos_used = models.PositiveIntegerField(default=0)
+    trial_regenerations_used = models.PositiveIntegerField(default=0)
 
     started_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
@@ -96,20 +99,21 @@ class UserSubscription(models.Model):
     def __str__(self):
         return f"{self.user} — {self.plan.name} ({self.status})"
 
-    # ── Usage reset (paid plans only) ───────────────────────────────────
+    # ── Usage reset (paid plans only — free plan uses lifetime counters) ─
 
     def reset_usage_if_needed(self):
         if self.plan.plan_type == SubscriptionPlan.PlanType.FREE_TRIAL:
             return
-
         today = timezone.now().date()
         if today.month != self.usage_reset_date.month or today.year != self.usage_reset_date.year:
             self.videos_generated_this_month = 0
             self.scripts_generated_this_month = 0
+            self.regenerations_used_this_month = 0
             self.usage_reset_date = today
             self.save(update_fields=[
                 "videos_generated_this_month",
                 "scripts_generated_this_month",
+                "regenerations_used_this_month",
                 "usage_reset_date",
             ])
 
@@ -125,6 +129,12 @@ class UserSubscription(models.Model):
         self.reset_usage_if_needed()
         return self.scripts_generated_this_month < self.plan.max_script_generations_per_month
 
+    def can_regenerate_video(self):
+        if self.plan.plan_type == SubscriptionPlan.PlanType.FREE_TRIAL:
+            return self.trial_regenerations_used < self.plan.max_regenerations_per_month
+        self.reset_usage_if_needed()
+        return self.regenerations_used_this_month < self.plan.max_regenerations_per_month
+
     # ── Increment (only on SUCCESS) ─────────────────────────────────────
 
     def increment_video_count(self):
@@ -138,6 +148,14 @@ class UserSubscription(models.Model):
     def increment_script_count(self):
         self.scripts_generated_this_month += 1
         self.save(update_fields=["scripts_generated_this_month"])
+
+    def increment_regeneration_count(self):
+        if self.plan.plan_type == SubscriptionPlan.PlanType.FREE_TRIAL:
+            self.trial_regenerations_used += 1
+            self.save(update_fields=["trial_regenerations_used"])
+        else:
+            self.regenerations_used_this_month += 1
+            self.save(update_fields=["regenerations_used_this_month"])
 
     # ── Status checks ───────────────────────────────────────────────────
 

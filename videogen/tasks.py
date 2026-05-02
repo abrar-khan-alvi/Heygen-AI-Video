@@ -137,19 +137,36 @@ def monitor_video_status_task(self, project_id):
             project.save()
             
             # ── Increment subscription counter — atomic, once-only ─────────────
-            claimed = VideoProject.objects.filter(
-                pk=project.pk, is_counted=False
-            ).update(is_counted=True)
+            # Regenerations count against the regeneration quota; normal videos
+            # count against the monthly video quota.
+            if project.is_regeneration:
+                claimed = VideoProject.objects.filter(
+                    pk=project.pk, is_regen_counted=False
+                ).update(is_regen_counted=True)
 
-            if claimed:
-                try:
-                    project.user.subscription.increment_video_count()
-                    logger.info(f"Task: subscription counter incremented for user {project.user.id} (project {project_id})")
-                except Exception as e:
-                    logger.error(f"Failed to increment video count: {e}")
-                    VideoProject.objects.filter(pk=project.pk).update(is_counted=False)
+                if claimed:
+                    try:
+                        project.user.subscription.increment_regeneration_count()
+                        logger.info(f"Task: regeneration counter incremented for user {project.user.id} (project {project_id})")
+                    except Exception as e:
+                        logger.error(f"Failed to increment regeneration count: {e}")
+                        VideoProject.objects.filter(pk=project.pk).update(is_regen_counted=False)
+                else:
+                    logger.info(f"Task: regen counter already claimed for {project_id}, skipping.")
             else:
-                logger.info(f"Task: counter already claimed for {project_id}, skipping.")
+                claimed = VideoProject.objects.filter(
+                    pk=project.pk, is_counted=False
+                ).update(is_counted=True)
+
+                if claimed:
+                    try:
+                        project.user.subscription.increment_video_count()
+                        logger.info(f"Task: subscription counter incremented for user {project.user.id} (project {project_id})")
+                    except Exception as e:
+                        logger.error(f"Failed to increment video count: {e}")
+                        VideoProject.objects.filter(pk=project.pk).update(is_counted=False)
+                else:
+                    logger.info(f"Task: counter already claimed for {project_id}, skipping.")
 
             # Send Email
             send_video_ready_email(project)

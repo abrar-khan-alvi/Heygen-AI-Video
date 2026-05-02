@@ -6,7 +6,8 @@ from .models import SubscriptionPlan, UserSubscription
 class SubscriptionPlanAdmin(admin.ModelAdmin):
     list_display = [
         "name", "plan_type", "price_monthly", "currency",
-        "max_videos_per_month", "max_script_generations_per_month",
+        "max_videos_per_month", "max_regenerations_per_month",
+        "max_script_generations_per_month",
         "has_priority_processing", "has_watermark",
         "apple_product_id", "google_product_id", "is_active",
     ]
@@ -20,7 +21,9 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
         }),
         ("Limits & Features", {
             "fields": (
-                "max_videos_per_month", "max_script_generations_per_month",
+                "max_videos_per_month",
+                "max_regenerations_per_month",
+                "max_script_generations_per_month",
                 "has_priority_processing", "has_watermark",
             ),
         }),
@@ -34,8 +37,9 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
 class UserSubscriptionAdmin(admin.ModelAdmin):
     list_display = [
         "user", "plan", "status", "platform",
-        "trial_videos_used",
-        "videos_generated_this_month", "scripts_generated_this_month",
+        "trial_videos_used", "trial_regenerations_used",
+        "videos_generated_this_month", "regenerations_used_this_month",
+        "scripts_generated_this_month",
         "started_at",
     ]
     list_filter = ["status", "plan", "platform"]
@@ -49,13 +53,13 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
         ("In-App Purchase", {
             "fields": ("platform", "product_id", "transaction_id", "purchase_token"),
         }),
-        ("Usage — Trial", {
-            "fields": ("trial_videos_used",),
-            "description": "Lifetime count for free trial (3 total, never resets).",
+        ("Usage — Free Trial (lifetime, never resets)", {
+            "fields": ("trial_videos_used", "trial_regenerations_used"),
         }),
-        ("Usage — Monthly (paid plans)", {
+        ("Usage — Monthly (paid plans, resets each month)", {
             "fields": (
                 "videos_generated_this_month",
+                "regenerations_used_this_month",
                 "scripts_generated_this_month",
                 "usage_reset_date",
             ),

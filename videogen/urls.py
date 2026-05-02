@@ -32,6 +32,9 @@ urlpatterns = [
     # Screen 8: Poll video status
     path("projects/<uuid:project_id>/video-status/", views.VideoStatusView.as_view(), name="video-status"),
 
+    # Regenerate a completed video (uses regeneration quota, not video quota)
+    path("projects/<uuid:project_id>/regenerate/", views.VideoRegenerateView.as_view(), name="video-regenerate"),
+
     # ── Project list & detail ───────────────────────────────────────────
     path("projects/", views.ProjectListView.as_view(), name="project-list"),
     path("projects/<uuid:project_id>/", views.ProjectDetailView.as_view(), name="project-detail"),

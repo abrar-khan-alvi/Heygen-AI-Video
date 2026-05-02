@@ -200,6 +200,25 @@ class VideoProject(models.Model):
         default=False,
         help_text="True once the subscription video counter has been incremented for this project."
     )
+    is_regen_counted = models.BooleanField(
+        default=False,
+        help_text="True once the regeneration counter has been incremented (only for regenerations)."
+    )
+
+    # Regeneration tracking
+    is_regeneration = models.BooleanField(
+        default=False,
+        help_text="True if this project was created by regenerating an existing completed video."
+    )
+    parent_project = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="regenerations",
+        help_text="The original project this was regenerated from.",
+    )
+
     video_status_message = models.TextField(blank=True, default="")
 
     # Meta

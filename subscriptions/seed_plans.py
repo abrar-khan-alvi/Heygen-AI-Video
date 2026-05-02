@@ -12,13 +12,14 @@ class Command(BaseCommand):
                 "plan_type": "free_trial",
                 "price_monthly": 0,
                 "currency": "GBP",
-                "max_videos_per_month": 3,  # 3 LIFETIME total, not monthly
+                "max_videos_per_month": 3,
+                "max_regenerations_per_month": 1,
                 "max_script_generations_per_month": 10,
                 "has_priority_processing": False,
                 "has_watermark": True,
                 "description": (
-                    "3 free video generations. No payment required. "
-                    "Once used, subscribe to continue."
+                    "3 videos per month with watermark. 1 regeneration per month. "
+                    "No payment required."
                 ),
                 "apple_product_id": "",
                 "google_product_id": "",
@@ -28,13 +29,14 @@ class Command(BaseCommand):
                 "plan_type": "starter",
                 "price_monthly": 7,
                 "currency": "GBP",
-                "max_videos_per_month": 5,
+                "max_videos_per_month": 4,
+                "max_regenerations_per_month": 2,
                 "max_script_generations_per_month": 15,
                 "has_priority_processing": False,
                 "has_watermark": False,
                 "description": (
-                    "5 video uploads per month. No watermark. "
-                    "Standard export quality. £7/month."
+                    "4 videos per month. 2 regenerations per month. "
+                    "No watermark. £7/month."
                 ),
                 "apple_product_id": "com.yourapp.starter_monthly",
                 "google_product_id": "starter_monthly",
@@ -44,13 +46,14 @@ class Command(BaseCommand):
                 "plan_type": "pro",
                 "price_monthly": 14,
                 "currency": "GBP",
-                "max_videos_per_month": 15,
+                "max_videos_per_month": 10,
+                "max_regenerations_per_month": 4,
                 "max_script_generations_per_month": 50,
                 "has_priority_processing": True,
                 "has_watermark": False,
                 "description": (
-                    "15 video uploads per month. Priority processing. "
-                    "Full access to all features. £14/month."
+                    "10 videos per month. 4 regenerations per month. "
+                    "Priority processing. Full access to all features. £14/month."
                 ),
                 "apple_product_id": "com.yourapp.pro_monthly",
                 "google_product_id": "pro_monthly",

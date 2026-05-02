@@ -24,6 +24,7 @@ from subscriptions.permissions import (
     HasActiveSubscription,
     CanGenerateScript,
     CanGenerateVideo,
+    CanRegenerateVideo,
 )
 
 logger = logging.getLogger(__name__)
@@ -744,3 +745,110 @@ class ProjectDetailView(APIView):
         self.check_object_permissions(request, project)
         project.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REGENERATE VIDEO
+#
+# POST /projects/{id}/regenerate/
+#
+# Creates a new VideoProject copying all settings from a completed project,
+# skips straight to video generation, and counts against the regeneration quota
+# (not the regular video quota). The user must have regenerations remaining.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class VideoRegenerateView(APIView):
+    permission_classes = [IsAuthenticated, CanRegenerateVideo]
+
+    def post(self, request, project_id):
+        original = _get_project(project_id, user=request.user)
+        if not original:
+            return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if original.status != VideoProject.StatusChoice.VIDEO_COMPLETED:
+            return Response(
+                {"detail": "Only completed videos can be regenerated."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not original.avatar_id:
+            return Response({"detail": "Original project has no avatar."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not original.finalized_script:
+            return Response(
+                {"detail": "Original project has no finalized script."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Copy all settings from original into a new project
+        regen = VideoProject.objects.create(
+            user=request.user,
+            parent_project=original,
+            is_regeneration=True,
+            # Project metadata
+            industry=original.industry,
+            title=original.title,
+            service_description=original.service_description,
+            background=original.background,
+            # Avatar
+            avatar_id=original.avatar_id,
+            avatar_name=original.avatar_name,
+            avatar_gender=original.avatar_gender,
+            avatar_outfit=original.avatar_outfit,
+            avatar_preview_url=original.avatar_preview_url,
+            avatar_preview_video_url=original.avatar_preview_video_url,
+            # Voice & style
+            voice_id=original.voice_id,
+            style_id=original.style_id,
+            # Script — copied as-is, already finalized
+            generated_script=original.generated_script,
+            finalized_script=original.finalized_script,
+            status=VideoProject.StatusChoice.SCRIPT_FINALIZED,
+        )
+
+        outfit = regen.avatar_outfit or "professional"
+
+        try:
+            result = heygen_service.generate_video_standard(
+                avatar_id=regen.avatar_id,
+                voice_id=regen.voice_id,
+                script=regen.finalized_script,
+                title=regen.title,
+                industry=regen.industry,
+                service_description=regen.service_description,
+                avatar_gender=regen.avatar_gender,
+                avatar_outfit=outfit,
+                background=regen.background,
+                style_id=regen.style_id,
+            )
+        except Exception as e:
+            regen.status = VideoProject.StatusChoice.VIDEO_FAILED
+            regen.video_status_message = str(e)[:1000]
+            regen.save()
+            return Response(
+                {"detail": f"Video regeneration failed: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        regen.heygen_video_id = result["video_id"]
+        regen.heygen_session_id = ""
+        regen.status = VideoProject.StatusChoice.VIDEO_PROCESSING
+        regen.video_status_message = "Regeneration queued with HeyGen."
+        # Mark counted immediately so the background task guard skips it,
+        # preventing a double-increment race condition on concurrent requests.
+        regen.is_regen_counted = True
+        regen.save()
+
+        request.user.subscription.increment_regeneration_count()
+
+        from django.core.cache import cache
+        lock_key = f"video_task_lock_{regen.id}"
+        if not cache.get(lock_key):
+            from .tasks import monitor_video_status_task
+            cache.set(lock_key, True, timeout=600)
+            monitor_video_status_task.delay(str(regen.id))
+
+        return Response(
+            VideoProjectSerializer(regen, context=_ctx(request)).data,
+            status=status.HTTP_201_CREATED,
+        )

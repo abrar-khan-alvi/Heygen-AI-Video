@@ -7,7 +7,8 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
         model = SubscriptionPlan
         fields = [
             "id", "name", "plan_type", "price_monthly", "currency",
-            "max_videos_per_month", "max_script_generations_per_month",
+            "max_videos_per_month", "max_regenerations_per_month",
+            "max_script_generations_per_month",
             "has_priority_processing", "has_watermark",
             "description", "apple_product_id", "google_product_id",
         ]
@@ -17,6 +18,7 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
     plan = SubscriptionPlanSerializer(read_only=True)
     videos_remaining = serializers.SerializerMethodField()
     scripts_remaining = serializers.SerializerMethodField()
+    regenerations_remaining = serializers.SerializerMethodField()
     trial_exhausted = serializers.BooleanField(read_only=True)
     is_trial = serializers.BooleanField(read_only=True)
 
@@ -25,9 +27,10 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
         fields = [
             "id", "plan", "status", "platform",
             "product_id", "transaction_id",
-            "is_trial", "trial_videos_used", "trial_exhausted",
+            "is_trial", "trial_videos_used", "trial_regenerations_used", "trial_exhausted",
             "videos_generated_this_month", "scripts_generated_this_month",
-            "videos_remaining", "scripts_remaining",
+            "regenerations_used_this_month",
+            "videos_remaining", "scripts_remaining", "regenerations_remaining",
             "started_at", "expires_at",
         ]
 
@@ -40,6 +43,12 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
     def get_scripts_remaining(self, obj):
         obj.reset_usage_if_needed()
         return max(0, obj.plan.max_script_generations_per_month - obj.scripts_generated_this_month)
+
+    def get_regenerations_remaining(self, obj):
+        if obj.plan.plan_type == SubscriptionPlan.PlanType.FREE_TRIAL:
+            return max(0, obj.plan.max_regenerations_per_month - obj.trial_regenerations_used)
+        obj.reset_usage_if_needed()
+        return max(0, obj.plan.max_regenerations_per_month - obj.regenerations_used_this_month)
 
 
 class IAPPurchaseSerializer(serializers.Serializer):

@@ -95,6 +95,8 @@ class ScriptFinalizeSerializer(serializers.Serializer):
 
 class VideoProjectSerializer(serializers.ModelSerializer):
     video_file_url = serializers.SerializerMethodField()
+    parent_project_id = serializers.UUIDField(read_only=True, allow_null=True)
+    regeneration_count = serializers.SerializerMethodField()
 
     class Meta:
         model = VideoProject
@@ -105,9 +107,13 @@ class VideoProjectSerializer(serializers.ModelSerializer):
             "generated_script", "finalized_script",
             "heygen_session_id", "heygen_video_id", "video_url", "video_file_url",
             "video_status_message",
+            "is_regeneration", "parent_project_id", "regeneration_count",
             "status", "created_at", "updated_at",
         ]
         read_only_fields = fields
+
+    def get_regeneration_count(self, obj):
+        return obj.regenerations.count()
 
     def get_video_file_url(self, obj):
         if obj.video_file:
@@ -124,6 +130,7 @@ class VideoProjectListSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "industry", "status",
             "avatar_name", "avatar_outfit",
+            "is_regeneration", "parent_project_id",
             "video_file_url", "created_at",
         ]
 
