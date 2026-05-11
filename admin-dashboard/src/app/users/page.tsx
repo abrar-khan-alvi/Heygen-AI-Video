@@ -27,7 +27,6 @@ export default function UsersPage() {
 
   const router = useRouter();
 
-  // Route protection
   useEffect(() => {
     const userStr = localStorage.getItem("admin_user");
     if (userStr) {
@@ -77,17 +76,6 @@ export default function UsersPage() {
     }
   };
 
-  const handlePromote = async (userId: string) => {
-    if (!window.confirm("Are you sure you want to promote this user to an Admin?")) return;
-    try {
-      await apiClient.post(`/admin/users/${userId}/promote/`);
-      alert("User successfully promoted to Admin!");
-      fetchUsers(page, search);
-    } catch (error: any) {
-      alert(error.response?.data?.message || "Failed to promote user.");
-    }
-  };
-
   const deleteUser = async (userId: string) => {
     if (!window.confirm("Are you sure you want to permanently delete this user? This action cannot be undone.")) return;
     try {
@@ -99,7 +87,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Registered Users</h1>
         <p className="text-sm text-zinc-500">View and search through your standard customer base.</p>
@@ -120,7 +108,7 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -136,13 +124,13 @@ export default function UsersPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center h-24">
+                    <TableCell colSpan={7} className="text-center h-24">
                       Loading users...
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center h-24">
+                    <TableCell colSpan={7} className="text-center h-24">
                       No users found.
                     </TableCell>
                   </TableRow>
@@ -152,10 +140,10 @@ export default function UsersPage() {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <UserCircle className="w-4 h-4 text-zinc-400" />
-                          <span>{user.username}</span>
+                          <span>{user.email}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-zinc-500">{user.email}</TableCell>
+                      <TableCell className="text-zinc-500">{user.username}</TableCell>
                       <TableCell>
                         {!user.is_active ? <Badge variant="destructive" className="bg-red-50 text-red-700 hover:bg-red-50 border-red-200">Disabled</Badge> : 
                         !user.is_email_verified && user.auth_provider === 'email' ? <Badge variant="secondary" className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-amber-200">Unverified</Badge> : 

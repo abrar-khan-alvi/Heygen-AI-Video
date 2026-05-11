@@ -20,7 +20,7 @@ function DetailRow({ label, value, mono = false, full = false }: {
 }) {
   if (!value && value !== 0) return null;
   return (
-    <div className={`flex flex-col gap-1 ${full ? "col-span-2" : ""}`}>
+    <div className={`flex flex-col gap-1 ${full ? "sm:col-span-2" : ""}`}>
       <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{label}</span>
       <span className={`text-sm text-zinc-800 break-words ${mono ? "font-mono bg-zinc-50 px-2 py-1 rounded-md border border-zinc-100 text-xs" : ""}`}>
         {value}
@@ -99,7 +99,7 @@ export default function VideoDetailPage() {
   const playableUrl = video.video_file_url || null;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
@@ -163,7 +163,7 @@ export default function VideoDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DetailRow label="Project ID" value={video.id} mono />
                 <DetailRow label="HeyGen Video ID" value={video.heygen_video_id || "—"} mono />
                 <DetailRow label="Industry" value={video.industry || "—"} />
@@ -181,7 +181,7 @@ export default function VideoDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {video.avatar_preview_url && (
                   <div className="col-span-2 flex items-center gap-4 p-3 bg-zinc-50 rounded-xl border border-zinc-100">
                     <img

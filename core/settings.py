@@ -67,7 +67,6 @@ INSTALLED_APPS = [
     'subscriptions',
     'videogen',
     'admin_api',
-    'productpromo',
 ]
 
 MIDDLEWARE = [
@@ -238,7 +237,10 @@ SIMPLE_JWT = {
 # CORS SETTINGS
 # =============================================================================
 
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:3000,http://localhost:3001'
+).split(',')
 CORS_ALLOW_CREDENTIALS = True
 
 

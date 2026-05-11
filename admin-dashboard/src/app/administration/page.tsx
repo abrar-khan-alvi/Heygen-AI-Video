@@ -160,7 +160,7 @@ export default function AdministrationPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-zinc-100">
@@ -318,7 +318,7 @@ export default function AdministrationPage() {
       <div className="w-full space-y-4">
         {/* Main Table Area */}
         <div className="w-full">
-          <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-2xl border border-zinc-200 overflow-x-auto shadow-sm">
             <Table>
               <TableHeader className="bg-zinc-50/80 border-b border-zinc-200">
                 <TableRow className="hover:bg-transparent">

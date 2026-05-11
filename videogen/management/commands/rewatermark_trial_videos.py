@@ -28,7 +28,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from videogen.models import VideoProject
-        from productpromo.models import ProductPromoProject
         from videogen.services import watermark_service, heygen_service
 
         dry_run = options["dry_run"]
@@ -74,64 +73,6 @@ class Command(BaseCommand):
 
                 # Remove stale disk file
                 rel = os.path.join("videos", p.created_at.strftime("%Y/%m"), final_filename)
-                full = os.path.join(settings.MEDIA_ROOT, rel)
-                if os.path.exists(full):
-                    os.remove(full)
-                if p.video_file:
-                    try:
-                        p.video_file.delete(save=False)
-                    except Exception:
-                        pass
-
-                p.video_file.save(final_filename, wm_file, save=False)
-                p.is_watermarked = True
-                p.save(update_fields=["video_file", "is_watermarked"])
-                self.stdout.write(self.style.SUCCESS(f"    ✓ Watermarked → {final_filename}"))
-                total_ok += 1
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"    ✗ Error: {e}"))
-                total_err += 1
-
-        # ── ProductPromo projects ──────────────────────────────────────────────
-        self.stdout.write("\n=== ProductPromo projects ===")
-        promo_projects = ProductPromoProject.objects.filter(
-            status="video_completed", is_watermarked=False
-        ).select_related("user", "user__subscription", "user__subscription__plan")
-
-        for p in promo_projects:
-            if not p.user.subscription.is_trial:
-                continue
-            self.stdout.write(f"  [{p.id}] heygen_video_id={p.heygen_video_id}")
-            if dry_run:
-                self.stdout.write("    → would re-watermark")
-                continue
-            try:
-                result = heygen_service.get_video_status(p.heygen_video_id)
-                if result.get("status") != "completed":
-                    self.stdout.write(f"    ✗ HeyGen status: {result.get('status')} — skipping")
-                    total_err += 1
-                    continue
-
-                url = result.get("video_url")
-                if not url:
-                    self.stdout.write("    ✗ No video_url — skipping")
-                    total_err += 1
-                    continue
-
-                resp = requests.get(url, timeout=120)
-                resp.raise_for_status()
-                video_bytes = resp.content
-                self.stdout.write(f"    Downloaded {len(video_bytes):,} bytes")
-
-                final_filename = f"promo_{p.id}_branded.mp4"
-                wm_file = watermark_service.apply_watermark(video_bytes, final_filename)
-
-                # Remove stale disk file
-                rel = os.path.join(
-                    "product_promo", "videos",
-                    p.created_at.strftime("%Y/%m"),
-                    final_filename,
-                )
                 full = os.path.join(settings.MEDIA_ROOT, rel)
                 if os.path.exists(full):
                     os.remove(full)

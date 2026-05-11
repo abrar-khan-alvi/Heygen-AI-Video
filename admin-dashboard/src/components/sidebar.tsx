@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Users, LayoutDashboard, Video, LogOut, ShieldCheck, UserCircle } from "lucide-react";
+import { Users, LayoutDashboard, Video, LogOut, ShieldCheck, UserCircle, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -17,7 +21,7 @@ export function Sidebar() {
     if (userData) {
       setUser(JSON.parse(userData));
     } else if (pathname !== "/login") {
-      router.push("/login"); // Protect routes
+      router.push("/login");
     }
   }, [pathname, router]);
 
@@ -41,13 +45,23 @@ export function Sidebar() {
   ];
 
   return (
-    <div className="flex flex-col w-64 h-screen border-r bg-white">
-      <div className="flex items-center justify-center p-6 border-b gap-3">
-        <img src="/logo.png" alt="No Face ADS Logo" className="w-8 h-8 rounded-md object-cover" />
-        <h2 className="text-xl font-bold tracking-tight">No Face ADS</h2>
+    <div className="flex flex-col w-64 h-full border-r bg-white">
+      <div className="flex items-center justify-between px-6 py-5 border-b">
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="No Face ADS Logo" className="w-8 h-8 rounded-md object-cover" />
+          <h2 className="text-xl font-bold tracking-tight">No Face ADS</h2>
+        </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1.5 rounded-md text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+          aria-label="Close menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
-      
-      <nav className="flex-1 p-4 flex flex-col gap-2">
+
+      <nav className="flex-1 p-4 flex flex-col gap-1">
         {links.map((link) => {
           if (!user?.is_superuser) {
             if (link.name === "Administration") return null;
@@ -57,14 +71,15 @@ export function Sidebar() {
 
           const Icon = link.icon;
           const isActive = pathname === link.href;
-          
+
           return (
             <Link
               key={link.name}
               href={link.href}
+              onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                isActive 
-                  ? "bg-slate-100 text-slate-900 font-medium" 
+                isActive
+                  ? "bg-slate-100 text-slate-900 font-medium"
                   : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
               }`}
             >
@@ -79,7 +94,7 @@ export function Sidebar() {
         {user && (
           <div className="mb-4">
             <p className="text-sm font-medium">{user.username}</p>
-            <p className="text-xs text-slate-500">{user.email}</p>
+            <p className="text-xs text-slate-500 truncate">{user.email}</p>
             {user.is_superuser && (
               <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 rounded-full">
                 Superadmin

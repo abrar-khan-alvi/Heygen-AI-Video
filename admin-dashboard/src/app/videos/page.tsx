@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button"; // Added Button import
-import { Search, Film, Clock, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<any[]>([]);
@@ -87,7 +87,7 @@ export default function VideosPage() {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Videos</h1>
@@ -110,7 +110,7 @@ export default function VideosPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

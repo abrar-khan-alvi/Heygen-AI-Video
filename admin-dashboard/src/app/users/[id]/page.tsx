@@ -69,7 +69,7 @@ export default function UserDetailPage() {
   }
 
   return (
-    <div className="p-8 space-y-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-4">
         <Button 
           variant="outline" 
