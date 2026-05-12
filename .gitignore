@@ -10,7 +10,6 @@ env/
 
 # IDE
 .idea/
-.vscode/
 *.swp
 *.swo
 
@@ -29,8 +28,6 @@ db.sqlite3
 db/
 
 # Secrets — never commit
-.env
-.env.*
 !.env.example
 
 # Coverage
@@ -40,3 +37,8 @@ htmlcov/
 # Celery
 celerybeat-schedule
 celerybeat.pid
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+config.bat
+node_modules
